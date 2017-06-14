@@ -110,6 +110,20 @@ Function Test-FAVMExistence
         If($Item -eq '1'){Return $true}else{Return $false}
 }
 
+function Get-PaddedOutArray
+{
+    Param(
+        [array]$Array,
+        [int]$Length
+    )
+
+    While ($Array.Length -lt $Length) {
+        $Array += $Array[0]
+    }
+
+    Return $Array
+}
+
 
 Function Deploy-WindowsServer
 {
@@ -143,6 +157,8 @@ Function Deploy-WindowsServer
     #    [string]$switch = "vSwitch"
     #)
 
+    $vhdPathArray = Get-PaddedOutArray -Array $vhdPathArray -Length $numDrives
+    
     # Don't change anything below this line - ignore the errors below, just in case you run the script again without having exited expectedly
 
     if (Test-FAVMExistence -VMName $name) {
