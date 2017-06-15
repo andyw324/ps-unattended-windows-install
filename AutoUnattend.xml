@@ -20,24 +20,24 @@
                             <Type>Primary</Type>
                         </CreatePartition>
                         <CreatePartition wcm:action="add">
-                            <Order>2</Order>
                             <Extend>true</Extend>
+                            <Order>2</Order>
                             <Type>Primary</Type>
                         </CreatePartition>
                     </CreatePartitions>
                     <ModifyPartitions>
                         <ModifyPartition wcm:action="add">
                             <Active>true</Active>
-                            <Label>Boot</Label>
-                            <Letter>T</Letter>
-                            <PartitionID>1</PartitionID>
-                            <Order>1</Order>
                             <Extend>false</Extend>
                             <Format>NTFS</Format>
+                            <Label>Boot</Label>
+                            <Letter>S</Letter>
+                            <Order>1</Order>
+                            <PartitionID>1</PartitionID>
                         </ModifyPartition>
                         <ModifyPartition wcm:action="add">
+                            <Active>false</Active>
                             <Extend>false</Extend>
-                            <Active>true</Active>
                             <Format>NTFS</Format>
                             <Label>OS</Label>
                             <Letter>C</Letter>
@@ -48,57 +48,13 @@
                     <DiskID>0</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
                 </Disk>
-                <Disk wcm:action="add">
-                    <CreatePartitions>
-                        <CreatePartition wcm:action="add">
-                            <Extend>true</Extend>
-                            <Order>1</Order>
-                            <Type>Primary</Type>
-                        </CreatePartition>
-                    </CreatePartitions>
-                    <ModifyPartitions>
-                        <ModifyPartition wcm:action="add">
-                            <Active>true</Active>
-                            <Extend>false</Extend>
-                            <Format>NTFS</Format>
-                            <Label>SQL_Install</Label>
-                            <Letter>S</Letter>
-                            <Order>1</Order>
-                            <PartitionID>1</PartitionID>
-                        </ModifyPartition>
-                    </ModifyPartitions>
-                    <DiskID>1</DiskID>
-                    <WillWipeDisk>true</WillWipeDisk>
-                </Disk>
-                <Disk wcm:action="add">
-                    <CreatePartitions>
-                        <CreatePartition wcm:action="add">
-                            <Extend>true</Extend>
-                            <Order>1</Order>
-                            <Type>Primary</Type>
-                        </CreatePartition>
-                    </CreatePartitions>
-                    <ModifyPartitions>
-                        <ModifyPartition wcm:action="add">
-                            <Active>true</Active>
-                            <Extend>false</Extend>
-                            <Format>NTFS</Format>
-                            <Label>Data</Label>
-                            <Letter>E</Letter>
-                            <PartitionID>1</PartitionID>
-                            <Order>1</Order>
-                        </ModifyPartition>
-                    </ModifyPartitions>
-                    <DiskID>2</DiskID>
-                    <WillWipeDisk>true</WillWipeDisk>
-                </Disk>
             </DiskConfiguration>
             <ImageInstall>
                 <OSImage>
                     <InstallFrom>
                         <MetaData wcm:action="add">
                             <Key>/IMAGE/NAME</Key>
-                            <Value>Windows Server 2012 SERVERSTANDARD</Value>
+                            <Value>Windows Server 2012 R2 SERVERSTANDARD</Value>
                         </MetaData>
                     </InstallFrom>
                     <InstallTo>
@@ -110,17 +66,20 @@
                 </OSImage>
             </ImageInstall>
             <UserData>
+                <ProductKey>
+                    <WillShowUI>OnError</WillShowUI>
+                </ProductKey>
                 <AcceptEula>true</AcceptEula>
-                <FullName>Joe Blogs</FullName>
-                <Organization>JBandCo</Organization>
+                <FullName>Tester</FullName>
+                <Organization>Test</Organization>
             </UserData>
         </component>
     </settings>
     <settings pass="specialize">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-            <ComputerName>Win2012Server</ComputerName>
+            <ComputerName>WIN2012SERVER</ComputerName>
             <TimeZone>GMT Standard Time</TimeZone>
-            <RegisteredOrganization>JBandCp</RegisteredOrganization>
+            <RegisteredOrganization>Test</RegisteredOrganization>
         </component>
     </settings>
     <settings pass="oobeSystem">
@@ -132,7 +91,7 @@
                 </Password>
                 <Enabled>true</Enabled>
                 <LogonCount>2</LogonCount>
-                <Username>administrator</Username>
+                <Username>Administrator</Username>
             </AutoLogon>
             <UserAccounts>
                 <AdministratorPassword>
@@ -140,7 +99,7 @@
                     <PlainText>false</PlainText>
                 </AdministratorPassword>
             </UserAccounts>
-            <RegisteredOrganization>JBandCo</RegisteredOrganization>
+            <RegisteredOrganization>Test</RegisteredOrganization>
         </component>
     </settings>
     <cpi:offlineImage cpi:source="wim://abcd-laptop/users/abcd%20family%20admin/documents/useful%20downloads/images/windows%20server%202012%20r2/install.wim#Windows Server 2012 R2 SERVERSTANDARD" xmlns:cpi="urn:schemas-microsoft-com:cpi" />

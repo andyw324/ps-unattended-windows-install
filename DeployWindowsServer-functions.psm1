@@ -129,17 +129,20 @@ Function Deploy-WindowsServer
 {
 
     Param(
-        [string]$path = [Environment]::GetFolderPath('UserProfile') + "\Downloads",
-        [string]$autoISO = "auto.iso",
-        [string]$windowsISOpath = $path + "\en_microsoft_hyper-v_server_2012_x64_dvd_915600.iso",
-        [array]$vhdPathArray = @($path + "\hyper-v.vhd"),
+        [Parameter(Mandatory=$true)][string]$unattendPath,
+        [Parameter(Mandatory=$true)][string]$autoISOPath,
+        [Parameter(Mandatory=$true)][string]$windowsISOpath,
         [string]$name = "Hyper-V Server 2012",
         [string]$switch = "vSwitch",
+        [int]$numCores = 1,
         [long]$ramSize = 2GB,
-        [array]$vhdSzeArray = @(10GB),
-        [array]$vhdBlockSizeArray = @(4KB),
+        [array]$vhdPathArray = @('$path + "\hyper-v.vhd"'),
+        [array]$vhdSizeArray = @(10GB),
+        [array]$vhdBlockSizeArray = @(32MB),
         [array]$vhdSectorSizeArray = @(512),
-        [int]$numDrives = 1
+        [int]$numDrives = 1,
+        [switch]$killVM = $false,
+        [switch]$confirmVMSettings = $false
     )
 
 
@@ -149,15 +152,39 @@ Function Deploy-WindowsServer
     # Assumes all required files are in, and will be written to <USER>\Downloads
     # Change the below parameters if needed
 
-    #Param(
-    #    [string]$path = [Environment]::GetFolderPath('UserProfile') + "\Downloads",
-    #    [string]$windowsISOpath = $path + "\en_microsoft_hyper-v_server_2012_x64_dvd_915600.iso",
-    #    [string]$vhdPath = $path + "\hyper-v.vhd",
-    #    [string]$name = "Hyper-V Server 2012",
-    #    [string]$switch = "vSwitch"
-    #)
+    if ($confirmVMSettings) {
+        # VM Input Parameters:
+        "VM Settings:"
+        "VM Name: " + $name
+        "Cores: " + $numCores
+        "RAM: " + $ramSize
+        "Switch Name: " + $switch
+        ""
+
+        "Virtual Drive Creation Details:"
+        "_______________________________"
+        for ($i=0;$i -lt $numDrives; $i++) {
+            "vhd path: " + $vhdPathArray[$i]
+            "Size Array: " + $vhdSizeArray[$i]
+            "Block Array: " + $vhdBlockSizeArray[$i]
+            "Sector Array: " + $vhdSectorSizeArray[$i]
+            "--------------------------------------------------"
+            ""
+        }
+        
+        $continue = Read-Host -Prompt "Do you wish to continue with the server deployment using these settings?[Y/N]: "
+
+        if ($continue -eq "N") {
+            "User aborted process - exiting"
+            Return
+        }
+    }
+
 
     $vhdPathArray = Get-PaddedOutArray -Array $vhdPathArray -Length $numDrives
+    $vhdSizeArray = Get-PaddedOutArray -Array $vhdSizeArray -Length $numDrives
+    $vhdBlockSizeArray = Get-PaddedOutArray -Array $vhdBlockSizeArray -Length $numDrives
+    $vhdSectorSizeArray = Get-PaddedOutArray -Array $vhdSectorSizeArray -Length $numDrives
     
     # Don't change anything below this line - ignore the errors below, just in case you run the script again without having exited expectedly
 
@@ -166,37 +193,49 @@ Function Deploy-WindowsServer
         Remove-VM  -Name $name -Force
     }
 
-    if (Test-Path $path\$autoISO) { del -Force $path\$autoISO }
-    if (Test-Path $vhdPath) { del -Force $vhdPath }
+    if (Test-Path $autoISOPath) { del -Force $autoISOPath }
+    for ($i=0;$i -lt $numDrives; $i++) {
+        if (Test-Path $vhdPathArray[$i]) { del -Force $vhdPathArray[$i] }
+    }
 
-    dir $path\autounattend.xml | New-IsoFile -Path $path\auto.iso -Media CDR -Title "Unattend"
+    dir $unattendPath\autounattend.xml | New-IsoFile -Path $autoISOPath -Media CDR -Title "Unattend"
 
-    if (!(Test-FAVMSwitchexistence)) { New-VMSwitch -Name $switch -SwitchType Private -Notes "Internal to VMs only" }
+    if (!(Test-FAVMSwitchexistence -VMSwitchname $switch)) { New-VMSwitch -Name $switch -SwitchType Private -Notes "Internal to VMs only" }
 
-    New-Vm -Name $name -SwitchName $switch
-    Set-VMProcessor -VMName $name -Count 1
-    Set-VMMemory -VMName $name -StartupBytes 2147483648
+    New-VM -Name $name -SwitchName $switch -Generation 2
+    Set-VMProcessor -VMName $name -Count $numCores
+    Set-VMMemory -VMName $name -StartupBytes $ramSize
+     
 
     for ($i=0;$i -lt $numDrives; $i++) {
-        "Drive ID = " + ($i+1) + " of size " + $array[$i] + " added"
-        New-VHD -Path $vhdPathArray[$i] -BlockSizeBytes $vhdBlockSizeArray[$i] -LogicalSectorSizeBytes $vhdSectorSizeArray[$i] -SizeBytes $vhdSzeArray[$i]
-        Add-VMHardDiskDrive -VMName $name -Path $vhdPathArray[$i] -ControllerType IDE -ControllerNumber 0 -ControllerLocation $i
+        #"Drive ID = " + ($i+1) + " of size " + $array[$i] + " added"
+        New-VHD -Path $vhdPathArray[$i] -BlockSizeBytes $vhdBlockSizeArray[$i] -LogicalSectorSizeBytes $vhdSectorSizeArray[$i] -SizeBytes $vhdSizeArray[$i]
+        Add-VMHardDiskDrive -VMName $name -Path $vhdPathArray[$i] -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
     }
-    New-VHD -Path $vhdPath -SizeBytes 21474836480 
+    #New-VHD -Path $vhdPath -SizeBytes 21474836480 
 
     #Add-VMHardDiskDrive -VMName $name -Path $vhdPath -ControllerType IDE -ControllerNumber 0 -ControllerLocation 0
-    Set-VMDvdDrive -VMName $name -Path $windowsISOPath -ControllerNumber 1 -ControllerLocation 0
-    Add-VMDvdDrive -VMName $name -Path $path\auto.iso -ControllerNumber 1 -ControllerLocation 1
+    Add-VMDvdDrive -VMName $name -Path $windowsISOPath -ControllerNumber 0 -ControllerLocation ($i+1)
+    $bootDevice = Get-VMDvdDrive -VMName $name
+    Add-VMDvdDrive -VMName $name -Path $autoISOPath -ControllerNumber 0 -ControllerLocation ($i+2)
+
+    Set-VMFirmware -VMName $name -FirstBootDevice $bootDevice
+    Set-VMFirmware -VMName $name -EnableSecureBoot Off
 
     Start-VM -Name $name
 
-    echo "When you press enter the Virtual Machine will be stopped and deleted"
-    pause
-
-    Stop-VM -Name $name -Force -TurnOff
-    Remove-VM  -Name $name -Force
-    del $path\hyper-v.vhd
-    del $path\auto.iso
+    if ($killVM) {
+        echo "When you press enter the Virtual Machine will be stopped and deleted"
+        pause
+        if (Test-FAVMExistence -VMName $name) {
+            Stop-VM -Name $name -Force -TurnOff
+            Remove-VM  -Name $name -Force
+        }
+        for ($i=0;$i -lt $numDrives; $i++) {
+            if (Test-Path $vhdPathArray[$i]) { del -Force $vhdPathArray[$i] }
+        }
+        del $autoISOPath
+    }
 
 
 <#
