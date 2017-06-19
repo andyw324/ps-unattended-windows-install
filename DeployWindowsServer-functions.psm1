@@ -124,8 +124,74 @@ function Get-PaddedOutArray
     Return $Array
 }
 
+Function Get-VMCustomStatus {
+    Param(
+        [string]$VMName="Hyper-V Server 2012",
+        [string]$GuestParamName="Sessions"
+    )
+    
+    $vm = Get-WmiObject -Namespace root\virtualization\v2 -Query "SELECT * FROM Msvm_ComputerSystem WHERE ElementName = '$VMName' "
+    $singleNode = (($vm.GetRelated("Msvm_KvpExchangeComponent").GuestExchangeItems | % { ([XML]$_) }).INSTANCE.PROPERTY | Where {$_.VALUE -eq $GuestParamName })
+    if (!($singleNode -eq $null)) {
+        $customStatus = $singleNode.ParentNode.SelectSingleNode('PROPERTY[@NAME="Data"]/VALUE').InnerXML
+        Return $customStatus
+        
+    }
+    Return $null
 
-Function Deploy-WindowsServer
+}
+
+Function Wait-VMStatus {
+    Param(
+        [Parameter(Mandatory=$true)][string]$VMName,
+        [Parameter(Mandatory=$true)][string]$statusName,
+        [Parameter(Mandatory=$true)][string]$completeValue,
+        [int]$refreshRateSeconds=2,
+        [int]$timeout=10
+    )
+
+    $status = $null
+    $timeOff = 0
+    $vmStatus="Running"
+    do
+    {
+        $newStatus = Get-VMCustomStatus -VMName $VMName -GuestParamName $statusName
+        if ($newStatus -eq $status) {
+            Write-Host "." -NoNewline -ForegroundColor Yellow
+        } else {
+            Write-Host $newStatus -NoNewline -ForegroundColor White
+            $status = $newStatus
+        }
+        if (( Get-VM -VMName $VMName).State -eq "Running") {
+            $timeOff = 0
+        } else {
+            $timeOff += $refreshRateSeconds
+            if ($timeOff -gt $timeout) {
+                ""
+                $continue = Read-Host -Prompt "The VM has been powered off for more than $timeout seconds. Do you wish to exit the progress status?[Y/N]"
+                if ($continue -ne "Y") {
+                    $timeoff = 0
+                } else {
+                    "Warning, user disabled status prompt, VM may still be in-use. Check before removing"
+                    ""
+                    break
+                }
+            }
+        }
+        Start-Sleep -Seconds $refreshRateSeconds
+    }
+    until ($newStatus -eq $completeValue) 
+    ""
+    if ($newStatus -eq $completeValue) {
+        "Process Completed!"
+        ""
+    } else {
+        "Some possible error encountered - check deployment before proceeding"
+        ""
+    }
+}
+
+Function New-HyperVWindowsServer
 {
 
     Param(
@@ -141,12 +207,14 @@ Function Deploy-WindowsServer
         [array]$vhdBlockSizeArray = @(32MB),
         [array]$vhdSectorSizeArray = @(512),
         [int]$numDrives = 1,
-        [switch]$killVM = $false,
-        [switch]$confirmVMSettings = $false
+        [int]$vmGen = 2,
+        [string]$setupVHDXPath = "C:\Users\ABCD Family Admin\Documents\Hyper-V\SetupFiles.vhdx",
+        [switch]$includeSetupVHD,
+        [switch]$killVM,
+        [switch]$confirmVMSettings,
+        [switch]$showProgress
     )
 
-
-    Import-Module .\DeployWindowsServer-functions.psm1
 
     # Begin script by Albal to create New-VM based on autounattend.xml -
     # Assumes all required files are in, and will be written to <USER>\Downloads
@@ -155,6 +223,7 @@ Function Deploy-WindowsServer
     if ($confirmVMSettings) {
         # VM Input Parameters:
         "VM Settings:"
+        "------------"
         "VM Name: " + $name
         "Cores: " + $numCores
         "RAM: " + $ramSize
@@ -172,13 +241,14 @@ Function Deploy-WindowsServer
             ""
         }
         
-        $continue = Read-Host -Prompt "Do you wish to continue with the server deployment using these settings?[Y/N]: "
+        $continue = Read-Host -Prompt "Do you wish to continue with the server deployment using these settings?[Y/N] "
 
         if ($continue -eq "N") {
             "User aborted process - exiting"
             Return
         }
     }
+
 
 
     $vhdPathArray = Get-PaddedOutArray -Array $vhdPathArray -Length $numDrives
@@ -202,28 +272,57 @@ Function Deploy-WindowsServer
 
     if (!(Test-FAVMSwitchexistence -VMSwitchname $switch)) { New-VMSwitch -Name $switch -SwitchType Private -Notes "Internal to VMs only" }
 
-    New-VM -Name $name -SwitchName $switch -Generation 2
+    New-VM -Name $name -SwitchName $switch -Generation $vmGen
     Set-VMProcessor -VMName $name -Count $numCores
     Set-VMMemory -VMName $name -StartupBytes $ramSize
-     
+    
+    if ($includeSetupVHD) {
+        $numDrives= 1
+    }
 
     for ($i=0;$i -lt $numDrives; $i++) {
         #"Drive ID = " + ($i+1) + " of size " + $array[$i] + " added"
         New-VHD -Path $vhdPathArray[$i] -BlockSizeBytes $vhdBlockSizeArray[$i] -LogicalSectorSizeBytes $vhdSectorSizeArray[$i] -SizeBytes $vhdSizeArray[$i]
         Add-VMHardDiskDrive -VMName $name -Path $vhdPathArray[$i] -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
     }
-    #New-VHD -Path $vhdPath -SizeBytes 21474836480 
+
+    if ($includeSetupVHD) {
+        if ((Get-VHD -Path $setupVHDXPath).Attached) {Dismount-VHD -Path $setupVHDXPath}
+        Add-VMHardDiskDrive -VMName $name -Path $setupVHDXPath -ControllerType SCSI -ControllerNumber 0 -ControllerLocation 1
+        $i += 1
+    } else {
+
+    }
+
+    if ($vmGen -eq 1) {
+        Set-VMDvdDrive -VMName $name -Path $windowsISOpath -ControllerNumber 1 -ControllerLocation 0
+        Add-VMDvdDrive -VMName $name -Path $autoISOPath -ControllerNumber 1 -ControllerLocation 1
+        
+    } else {
+        Add-VMDvdDrive -VMName $name -Path $windowsISOPath -ControllerNumber 0 -ControllerLocation ($i+1)
+        $bootDevice = Get-VMDvdDrive -VMName $name
+        Add-VMDvdDrive -VMName $name -Path $autoISOPath -ControllerNumber 0 -ControllerLocation ($i+2)        
+        Set-VMFirmware -VMName $name -FirstBootDevice $bootDevice
+        Set-VMFirmware -VMName $name -EnableSecureBoot Off
+
+    }
+    
 
     #Add-VMHardDiskDrive -VMName $name -Path $vhdPath -ControllerType IDE -ControllerNumber 0 -ControllerLocation 0
-    Add-VMDvdDrive -VMName $name -Path $windowsISOPath -ControllerNumber 0 -ControllerLocation ($i+1)
-    $bootDevice = Get-VMDvdDrive -VMName $name
-    Add-VMDvdDrive -VMName $name -Path $autoISOPath -ControllerNumber 0 -ControllerLocation ($i+2)
+    #Add-VMDvdDrive -VMName $name -Path $windowsISOPath -ControllerNumber 0 -ControllerLocation ($i+1)
+    #$bootDevice = Get-VMDvdDrive -VMName $name
+    #Add-VMDvdDrive -VMName $name -Path $autoISOPath -ControllerNumber 0 -ControllerLocation ($i+2)
 
-    Set-VMFirmware -VMName $name -FirstBootDevice $bootDevice
-    Set-VMFirmware -VMName $name -EnableSecureBoot Off
-
+    
     Start-VM -Name $name
 
+    ""
+    "Starting VM Deployment"
+    ""
+    if ($showProgress) {
+        Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $name
+    }
+    
     if ($killVM) {
         echo "When you press enter the Virtual Machine will be stopped and deleted"
         pause
@@ -234,7 +333,7 @@ Function Deploy-WindowsServer
         for ($i=0;$i -lt $numDrives; $i++) {
             if (Test-Path $vhdPathArray[$i]) { del -Force $vhdPathArray[$i] }
         }
-        del $autoISOPath
+        if (Test-Path $autoISOPath) { del $autoISOPath }
     }
 
 

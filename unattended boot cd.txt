@@ -1,0 +1,4 @@
+﻿#https://www.experts-exchange.com/questions/28995904/Try-to-disable-Press-any-key-to-boot-from-CD-DVD-for-unattended-Windows-Server-2016-installation.html
+
+Oscdimg -m -o -u2 -udfver102 -bootdata:2 #p0,e,b<Path-to-iso>\etfsboot.com #pEF,e,b<Path-to-iso>\efisys.bin <Source Directory> <Target>
+

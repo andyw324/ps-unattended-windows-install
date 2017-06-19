@@ -17,7 +17,7 @@
                         <CreatePartition wcm:action="add">
                             <Order>1</Order>
                             <Size>350</Size>
-                            <Type>Primary</Type>
+                            <Type>EFI</Type>
                         </CreatePartition>
                         <CreatePartition wcm:action="add">
                             <Extend>true</Extend>
@@ -25,28 +25,19 @@
                             <Type>Primary</Type>
                         </CreatePartition>
                     </CreatePartitions>
-                    <ModifyPartitions>
-                        <ModifyPartition wcm:action="add">
-                            <Active>true</Active>
-                            <Extend>false</Extend>
-                            <Format>NTFS</Format>
-                            <Label>Boot</Label>
-                            <Letter>S</Letter>
-                            <Order>1</Order>
-                            <PartitionID>1</PartitionID>
-                        </ModifyPartition>
-                        <ModifyPartition wcm:action="add">
-                            <Active>false</Active>
-                            <Extend>false</Extend>
-                            <Format>NTFS</Format>
-                            <Label>OS</Label>
-                            <Letter>C</Letter>
-                            <Order>2</Order>
-                            <PartitionID>2</PartitionID>
-                        </ModifyPartition>
-                    </ModifyPartitions>
                     <DiskID>0</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
+                </Disk>
+                <Disk wcm:action="add">
+                    <ModifyPartitions>
+                        <ModifyPartition wcm:action="add">
+                            <Letter>Z</Letter>
+                            <PartitionID>2</PartitionID>
+                            <Order>1</Order>
+                        </ModifyPartition>
+                    </ModifyPartitions>
+                    <DiskID>1</DiskID>
+                    <WillWipeDisk>false</WillWipeDisk>
                 </Disk>
             </DiskConfiguration>
             <ImageInstall>
@@ -81,6 +72,22 @@
             <TimeZone>GMT Standard Time</TimeZone>
             <RegisteredOrganization>Test</RegisteredOrganization>
         </component>
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>REG ADD &quot;HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest&quot; /f /v OSInstallStatus /t REG_SZ /d 4</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>3</Order>
+                    <Path>PowerShell -File &quot;Z:\CreateSetupCommand.ps1&quot;</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <Path>PowerShell Set-Disk 1 -IsOffline $false</Path>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
     </settings>
     <settings pass="oobeSystem">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -100,6 +107,33 @@
                 </AdministratorPassword>
             </UserAccounts>
             <RegisteredOrganization>Test</RegisteredOrganization>
+            <FirstLogonCommands>
+                <SynchronousCommand wcm:action="add">
+                    <CommandLine>PowerShell -File &quot;Z:\CreateSetupCommand.ps1&quot;</CommandLine>
+                    <Order>2</Order>
+                    <RequiresUserInput>true</RequiresUserInput>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <CommandLine>PowerShell Set-Disk 1 -IsOffline $false</CommandLine>
+                    <RequiresUserInput>false</RequiresUserInput>
+                </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <CommandLine>REG ADD &quot;HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest&quot; /f /v OSInstallStatus /t REG_SZ /d OOBEComplete</CommandLine>
+                    <Order>3</Order>
+                    <RequiresUserInput>false</RequiresUserInput>
+                </SynchronousCommand>
+            </FirstLogonCommands>
+        </component>
+    </settings>
+    <settings pass="auditUser">
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Path>REG ADD &quot;HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest&quot; /f /v OSInstallStatus /t REG_SZ /d 6</Path>
+                    <Order>1</Order>
+                </RunSynchronousCommand>
+            </RunSynchronous>
         </component>
     </settings>
     <cpi:offlineImage cpi:source="wim://abcd-laptop/users/abcd%20family%20admin/documents/useful%20downloads/images/windows%20server%202012%20r2/install.wim#Windows Server 2012 R2 SERVERSTANDARD" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
