@@ -154,18 +154,29 @@ Function Wait-VMStatus {
         [Parameter(Mandatory=$true)][string]$VMName,
         [Parameter(Mandatory=$true)][string]$statusName,
         [Parameter(Mandatory=$true)][string]$completeValue,
+        [string]$Command,
         [int]$refreshRateSeconds=2,
         [int]$timeout=10,
-        [int]$lineLength=50
+        [int]$lineLength=50,
+        [switch]$runCmd,
+        [string]$runCmdStatus
     )
 
     $status = $null
     $timeOff = 0
     $vmStatus="Running"
     $curLineLength = 0
+    $cmdRun = $false
     do
     {
         $newStatus = Get-VMCustomStatus -VMName $VMName -GuestParamName $statusName
+        if ($runCmd) {
+            if (($newStatus -eq $runCmdStatus) -and !($cmdRun)) {
+                PowerShell $Command
+                $cmdRun = $True
+            }
+        }
+
         if ($newStatus -eq $status) {
             if ($curLineLength -ge $lineLength) {
                 Write-Host "." -ForegroundColor Yellow
@@ -482,9 +493,10 @@ Function New-HyperVWindowsServer
             $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i -IsBootDisk)
             $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -IsBootDisk -DriveLetter $vhdDriveLetter[$i])
         } else {
-            $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i)
-            $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -DriveLetter $vhdDriveLetter[$i])
-            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i])
+            #$UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i)
+            #$UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -DriveLetter $vhdDriveLetter[$i])
+            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i]) + ' -Confirm:$False'
+            #$InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i])
         }
         $UnattendDiskConfigSection += "`r`n" + '                    <DiskID>' + $i + '</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
@@ -507,6 +519,7 @@ Function New-HyperVWindowsServer
 
         # Add custom scripts to be called from the FirstLogonCommands during the OODE Pass of the windows install
         $setupDisk = Mount-VHD –Path $setupVHDXPath –PassThru | Get-Disk | Get-Partition | Get-Volume
+        if (Test-Path -Path ($setupDisk.DriveLetter + ':\temp')) {Remove-Item ($setupDisk.DriveLetter + ':\temp') -Force -Recurse}
         mkdir ($setupDisk.DriveLetter + ':\temp')
         Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigDrives.ps1') $InitPartFormatDrives -Encoding UTF8
         Dismount-VHD -Path $setupVHDXPath
@@ -576,7 +589,7 @@ Function New-HyperVWindowsServer
         Write-Host ""
         Write-Host "Starting VM Deployment"
         Write-Host ""
-        Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName }
+        Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName -Command "Get-VMDvdDrive -VMName $VMName | Remove-VMDvdDrive" -runCmd -runCmdStatus "Specialize-Pass" }
 
         if ((Test-FAVMExistence -VMName $VMName) -and (!(Get-VM -Name $VMName).State -eq "Off")) {
             Write-Host ""
