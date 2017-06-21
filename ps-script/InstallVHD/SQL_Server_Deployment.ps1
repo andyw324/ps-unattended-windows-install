@@ -2,9 +2,9 @@
     [string]$configFilePath="Z:\sql-server-config-file\ConfigurationFile-from-scratch.ini"
 )
 
-"Starting SQL Server 2016 Deployment"
-"-----------------------------------"
-"To continue press Enter"
+Write-Host "Starting SQL Server 2016 Deployment"
+Write-Host "-----------------------------------"
+Write-Host "To continue press Enter"
 Pause
 REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v SQLInstallStatus /t REG_SZ /d Started
 

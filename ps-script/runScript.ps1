@@ -10,14 +10,17 @@ $unattendTemplatePath = "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unat
 New-HyperVWindowsServer -unattendPath $unattendPath `
                         -autoISOPath $autoISOPath `
                         -windowsISOpath $windowsISOPath `
-                        -vhdPathArray @(($vhdPath + "\boot.vhdx"),($vhdPath + "\install.vhdx"),($vhdPath + "\data.vhdx")) `
+                        -vhdPathArray @(($vhdPath + "\boot.vhdx"),($vhdPath + "\install.vhdx"),($vhdPath + "\data.vhdx"),($vhdPath + "\logs.vhdx"),($vhdPath + "\temp.vhdx"),($vhdPath + "\backup.vhdx")) `
+                        -vhdLabelArray @('OS','InstallData','Data','Logs','Temp','Backup') `
                         -unattendTemplatePath $unattendTemplatePath `
                         -VMName "WIN2012TEST" `
                         -ramSize (2GB) `
-                        -vhdSizeArray @(50GB,10GB,10GB) `
+                        -vhdSizeArray @(50GB,5GB,5GB,5GB,5GB,5GB) `
                         -vhdBlockSizeArray @(32MB) `
-                        -vhdSectorSizeArray @(512,512,512) `
-                        -numDrives 1 `
+                        -vhdSectorSizeArray @(512,512,512,512,512,512) `
+                        -vhdAllocationUnitSize @(4KB,64KB,64KB,64KB,64KB,64KB) `
+                        -vhdDriveLetter @('C','S','D') `
+                        -numDrives 6 `
                         -killVM `
                         -confirmVMSettings `
                         -showProgress `

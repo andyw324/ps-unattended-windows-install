@@ -190,13 +190,13 @@ Function Wait-VMStatus {
         } else {
             $timeOff += $refreshRateSeconds
             if ($timeOff -gt $timeout) {
-                echo ""
+                Write-Host ""
                 $continue = Read-Host -Prompt "The VM has been powered off for more than $timeout seconds. Do you wish to exit the progress status?[Y/N]"
                 if ($continue -ne "Y") {
                     $timeoff = 0
                 } else {
-                    echo "Warning, user disabled status prompt, VM may still be in-use. Check before removing"
-                    echo ""
+                    Write-Host "Warning, user disabled status prompt, VM may still be in-use. Check before removing"
+                    Write-Host ""
                     break
                 }
             }
@@ -218,14 +218,12 @@ Function Wait-VMStatus {
 function Add-AutoUnattendDisk
 {
     Param(
-        [Parameter(Mandatory=$True)][int]$DiskNumber,
         [switch]$IsBootDisk
     )
 
     if ($IsBootDisk) {
                 
-        $Pass1_DiskConfig = '                <Disk wcm:action="add">
-                    <CreatePartitions>
+        $Pass1_DiskConfig = '                    <CreatePartitions>
                         <CreatePartition wcm:action="add">
                             <Order>1</Order>
                             <Size>350</Size>
@@ -236,22 +234,15 @@ function Add-AutoUnattendDisk
                             <Order>2</Order>
                             <Type>Primary</Type>
                         </CreatePartition>
-                    </CreatePartitions>
-                    <DiskID>' + $DiskNumber + '</DiskID>
-                    <WillWipeDisk>true</WillWipeDisk>
-                </Disk>'
+                    </CreatePartitions>'
     } else {
-        $Pass1_DiskConfig = '                <Disk wcm:action="add">
-                    <CreatePartitions>
+        $Pass1_DiskConfig = '                    <CreatePartitions>
                         <CreatePartition wcm:action="add">
                             <Extend>true</Extend>
                             <Order>1</Order>
                             <Type>Primary</Type>
                         </CreatePartition>
-                    </CreatePartitions>
-                    <DiskID>' + $DiskNumber + '</DiskID>
-                    <WillWipeDisk>true</WillWipeDisk>
-                </Disk>'
+                    </CreatePartitions>'
     }
 
     return $Pass1_DiskConfig
@@ -262,35 +253,26 @@ function Add-AutoUnattendDisk
 function Set-AutoUnattendDisk
 {
     Param(
-        [Parameter(Mandatory=$True)][int]$DiskNumber,
         [string]$DriveLetter,
         [switch]$IsBootDisk,
         [switch]$IsSetupDisk
     )
     if ($IsBootDisk -or $IsSetupDisk) {
-        $Pass1_DiskConfig = '                <Disk wcm:action="add">
-                    <ModifyPartitions>
+        $Pass1_DiskConfig = '                    <ModifyPartitions>
                         <ModifyPartition wcm:action="add">
                             <Letter>' + $DriveLetter + '</Letter>
                             <PartitionID>2</PartitionID>
                             <Order>1</Order>
                         </ModifyPartition>
-                    </ModifyPartitions>
-                    <DiskID>' + $DiskNumber + '</DiskID>
-                    <WillWipeDisk>false</WillWipeDisk>
-                </Disk>'
+                    </ModifyPartitions>'
     } else {
-        $Pass1_DiskConfig = '                <Disk wcm:action="add">
-                    <ModifyPartitions>
+        $Pass1_DiskConfig = '                    <ModifyPartitions>
                         <ModifyPartition wcm:action="add">
                             <Letter>' + $DriveLetter + '</Letter>
                             <PartitionID>1</PartitionID>
                             <Order>1</Order>
                         </ModifyPartition>
-                    </ModifyPartitions>
-                    <DiskID>' + $DiskNumber + '</DiskID>
-                    <WillWipeDisk>true</WillWipeDisk>
-                </Disk>'
+                    </ModifyPartitions>'
         
     }
 
@@ -303,7 +285,7 @@ function Set-AutoUnattendRunSyncCmd
     Param(
         [Parameter(Mandatory=$True)][string]$Command,
         [Parameter(Mandatory=$True)][int]$Order,
-        [string]$Description,
+        [string]$Description = "None Provided",
         [Parameter(Mandatory=$False)][ValidateSet('Never','Always','OnRequest')][string]$WillReboot='Never'
     )
 
@@ -325,7 +307,7 @@ function Set-AutoUnattendFirstLogonCmd
     Param(
         [Parameter(Mandatory=$True)][string]$Command,
         [Parameter(Mandatory=$True)][int]$Order,
-        [string]$Description,
+        [string]$Description = "None Provided",
         [switch]$RequiresUserinput
     )
         $RunCommand = $Command.Replace('"','&quot;')
@@ -355,8 +337,8 @@ Function New-AutoUnattendXML
         [string]$UnattendDiskConfigSection = "",
         [string]$UnattendRunSyncCmdSpecialize = "",
         [string]$UnattendRunSyncCmdOOBE = "",
-        [string]$FullName ="",
-        [string]$OrganisationName = ""
+        [string]$FullName ="NotDefined",
+        [string]$OrganisationName = "NotDefined"
     )
 
     $findString = "[[--DiskConfig--]]"
@@ -373,27 +355,17 @@ Function New-AutoUnattendXML
 
 
     $findString = "[[--OrganisationName--]]"
-    if ($OrganisationName.length -gt 0) {
-        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,'            <Organization>' + $OrganisationName + '</Organization>')}
-    } else {
-        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,"")}
-    }
+    $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$OrganisationName)}
+
      
     $findString = "[[--RegOrganisationName--]]"
-    if ($OrganisationName.length -gt 0) {
-        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,'            <RegisteredOrganization>' + $OrganisationName + '</RegisteredOrganization>')}
-    } else {
-        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,"")}
-    }
+    $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$OrganisationName)}
+    
 
     $findString = "[[--FullName--]]"
-    if ($FullName.Length -gt 0) {
-        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,'                <FullName>' + $FullName + '</FullName>')}
-    } else {
-        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,'')}
-    }
+    $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$FullName)}
 
-    Set-Content ($autoUnattendPath + "\AutoUnattend.xml") $NewUnattendXM -Encoding UTF8
+    Set-Content ($autoUnattendPath + "\AutoUnattend.xml") ( $NewUnattendXM | ? {$_.trim() } ) -Encoding UTF8
 }
 
 
@@ -413,7 +385,9 @@ Function New-HyperVWindowsServer
         [array]$vhdSizeArray = @(10GB),
         [array]$vhdBlockSizeArray = @(32MB),
         [array]$vhdSectorSizeArray = @(512),
+        [array]$vhdAllocationUnitSize = @(4KB),
         [array]$vhdDriveLetter = @('C'),
+        [array]$vhdLabelArray = @(''),
         [int]$numDrives = 1,
         [int]$vmGen = 2,
         [string]$setupVHDXPath = "C:\Users\ABCD Family Admin\Documents\Hyper-V\SetupFiles.vhdx",
@@ -423,6 +397,11 @@ Function New-HyperVWindowsServer
         [switch]$showProgress
     )
 
+    # Define and set some baseline parameters
+    $FirstLogonCommandOrder = 1
+    $SpecialiseRunSyncCommandOrder = 1
+    $InitPartFormatDrives = 'Write-Host "Begining Initializing, partitioning and formatting system disks"'
+
 
     # Credit to script by Albal
     
@@ -431,34 +410,37 @@ Function New-HyperVWindowsServer
     $vhdSizeArray = Get-PaddedOutArray -Array $vhdSizeArray -Length $numDrives
     $vhdBlockSizeArray = Get-PaddedOutArray -Array $vhdBlockSizeArray -Length $numDrives
     $vhdSectorSizeArray = Get-PaddedOutArray -Array $vhdSectorSizeArray -Length $numDrives
+    $vhdLabelArray = Get-PaddedOutArray -Array $vhdLabelArray -Length $numDrives
     $vhdDriveLetter = Get-PaddedOutArray -Array $vhdDriveLetter -Length $numDrives -IsDriveLetter
 
     if ($confirmVMSettings) {
         # VM Input Parameters:
-        echo "VM Settings:"
-        echo "------------"
-        echo "VM Name: $VMName"
-        echo "Cores: $numCores"
-        echo "RAM: $ramSize"
-        echo "Switch Name: $switch"
-        echo ""
+        Write-Host "VM Settings:"
+        Write-Host "------------"
+        Write-Host "VM Name: $VMName"
+        Write-Host "Cores: $numCores"
+        Write-Host "RAM: $ramSize"
+        Write-Host "Switch Name: $switch"
+        Write-Host ""
 
-        echo "Virtual Drive Creation Details:"
-        echo "_______________________________"
+        Write-Host "Virtual Drive Creation Details:"
+        Write-Host "_______________________________"
         for ($i=0;$i -lt $numDrives; $i++) {
-            echo ('vhd path: ' + $vhdPathArray[$i])
-            echo ('Size Array: ' + $vhdSizeArray[$i])
-            echo ('Block Array: ' + $vhdBlockSizeArray[$i])
-            echo ('Sector Array: ' + $vhdSectorSizeArray[$i])
-            echo ('Drive Letter: ' + $vhdDriveLetter[$i])
-            echo '--------------------------------------------------'
-            echo ''
+            Write-Host ('vhd path: ' + $vhdPathArray[$i])
+            Write-Host ('Size: ' + $vhdSizeArray[$i])
+            Write-Host ('Block Size: ' + $vhdBlockSizeArray[$i])
+            Write-Host ('Sector Size: ' + $vhdSectorSizeArray[$i])
+            Write-Host ('Allocation Unit Size: ' + $vhdAllocationUnitSize[$i])
+            Write-Host ('Drive Letter: ' + $vhdDriveLetter[$i])
+            Write-Host ('Drive Label: ' + $vhdLabelArray[$i])
+            Write-Host '--------------------------------------------------'
+            Write-Host ''
         }
         
         $continue = Read-Host -Prompt "Do you wish to continue with the server deployment using these settings?[Y/N] "
 
         if ($continue -eq "N") {
-            echo "User aborted process - exiting"
+            Write-Host "User aborted process - exiting"
             Return
         }
     }
@@ -489,37 +471,70 @@ Function New-HyperVWindowsServer
     
 
     # Create and add Virtual HDDs and generate Disk Configuration settings for the Unattended Answer File (AutoUnattend.xml)
+    $UnattendDiskConfigSection = "`n"   
     for ($i=0;$i -lt $numDrives; $i++) {
         #"Drive ID = " + ($i+1) + " of size " + $array[$i] + " added"
         New-VHD -Path $vhdPathArray[$i] -BlockSizeBytes $vhdBlockSizeArray[$i] -LogicalSectorSizeBytes $vhdSectorSizeArray[$i] -SizeBytes $vhdSizeArray[$i]
         Add-VMHardDiskDrive -VMName $VMName -Path $vhdPathArray[$i] -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
+        
+        $UnattendDiskConfigSection += '                <Disk wcm:action="add">'
         if ($i -eq 0) {
-            $UnattendDiskConfigSection += `n Add-AutoUnattendDisk -DiskNumber $i -IsBootDisk
-            $UnattendDiskConfigSection += `n Set-AutoUnattendDisk -DiskNumber $i -IsBootDisk -DriveLetter $vhdDriveLetter[$i]
+            $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i -IsBootDisk)
+            $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -IsBootDisk -DriveLetter $vhdDriveLetter[$i])
         } else {
-            $UnattendDiskConfigSection += `n Add-AutoUnattendDisk -DiskNumber $i
-            $UnattendDiskConfigSection += `n Set-AutoUnattendDisk -DiskNumber $i -DriveLetter $vhdDriveLetter[$i]
+            $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i)
+            $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -DriveLetter $vhdDriveLetter[$i])
+            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel $vhdLabelArray[$i] -AllocationUnitSize $vhdAllocationUnitSize[$i]"
         }
+        $UnattendDiskConfigSection += "`r`n" + '                    <DiskID>' + $i + '</DiskID>
+                    <WillWipeDisk>true</WillWipeDisk>
+                </Disk>'
     }
 
     # Attach a pre-formatted virtual HDD that houses the relevant setupfiles needed. Assign this to Drive "Z" for easy reference to auto setup scripts etc
     # to be included in the autounattend.xml file.
     if ($includeSetupVHD) {
-        if ((Get-VHD -Path $setupVHDXPath).Attached) {Dismount-VHD -Path $setupVHDXPath}
-        #$i += 1
+        # Check whether setup vhdx is already attached to a VM
+        if ((Get-VHD -Path $setupVHDXPath).Attached) 
+        {
+            if (!(Get-VMHardDiskDrive -VMName $VMName | where {$_.Path -eq $setupVHDXPath}) -eq $null)
+            {
+                Get-VMHardDiskDrive -VMName $VMName | where {$_.Path -eq $setupVHDXPath} | Remove-VMHardDiskDrive
+            } else {
+                Dismount-VHD -Path $setupVHDXPath
+            }
+        }
+
+        # Add custom scripts to be called from the FirstLogonCommands during the OODE Pass of the windows install
+        $setupDisk = Mount-VHD –Path $setupVHDXPath –PassThru | Get-Disk | Get-Partition | Get-Volume
+        mkdir ($setupDisk.DriveLetter + ':\temp')
+        Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigDrives.ps1') $InitPartFormatDrives -Encoding UTF8
+        Dismount-VHD -Path $setupVHDXPath
+
         Add-VMHardDiskDrive -VMName $VMName -Path $setupVHDXPath -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
         $setupDiskNumber = $i
-        #$UnattendDiskConfigSection += Add-AutoUnattendDisk -DiskNumber $i
-        $UnattendDiskConfigSection += Set-AutoUnattendDisk -DiskNumber $i -IsSetupDisk -DriveLetter "Z"
-        
+        $UnattendDiskConfigSection += "`r`n" + '                <Disk wcm:action="add">'
+        $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -IsSetupDisk -DriveLetter "Z")
+        $UnattendDiskConfigSection += "`r`n" + '                    <DiskID>' + $i + '</DiskID>
+                    <WillWipeDisk>false</WillWipeDisk>
+                </Disk>'
     }
 
     # Create the relevant runSynchronous commands to be run during the Specialise pass of the Windows install
-    $UnattendRunSyncCmdSpecialise = Set-AutoUnattendRunSyncCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Specialize-Pass' -Order 1
-    $UnattendRunSyncCmdSpecialise += `n Set-AutoUnattendRunSyncCmd -Command ('PowerShell Set-Disk ' + $setupDiskNumber + ' -IsOffline $false') -Order 2
+    $UnattendRunSyncCmdSpecialise += "`r`n" + (Set-AutoUnattendRunSyncCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Specialize-Pass' -Order $SpecialiseRunSyncCommandOrder)
+    $SpecialiseRunSyncCommandOrder += 1
+    #$UnattendRunSyncCmdSpecialise += "`r`n" + (Set-AutoUnattendRunSyncCmd -Command ('PowerShell Set-Disk ' + $setupDiskNumber + ' -IsOffline $false') -Order $SpecialiseRunSyncCommandOrder)
+    #$SpecialiseRunSyncCommandOrder += 1
     
     # Create the relevant FirstLogonCommand commands to be run during the OOBE pass of the windows install
-    $UnattendFirstLogonCmd = Set-AutoUnattendFirstLogonCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Complete' -Order 1
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell Set-Disk ' + $setupDiskNumber + ' -IsOffline $false') -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\temp\ConfigDrives.ps1' -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Complete' -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\SQL_Server_Deployment.ps1' -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1
     
     
     for ($i=1;$i -lt $numDrives; $i++) {
@@ -533,7 +548,7 @@ Function New-HyperVWindowsServer
                         -UnattendRunSyncCmdSpecialize $UnattendRunSyncCmdSpecialise `
                         -UnattendRunSyncCmdOOBE $UnattendFirstLogonCmd
     
-    echo "Check AutoUnattend.xml created before continuing"
+    Write-Host "Check AutoUnattend.xml created before continuing"
     Pause
     
     # Create ISO with the autogenerated AutoUnattend.xml file
@@ -558,21 +573,21 @@ Function New-HyperVWindowsServer
 
     if ($showProgress) {
     
-        echo ""
-        echo "Starting VM Deployment"
-        echo ""
+        Write-Host ""
+        Write-Host "Starting VM Deployment"
+        Write-Host ""
         Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName }
 
         if ((Test-FAVMExistence -VMName $VMName) -and (!(Get-VM -Name $VMName).State -eq "Off")) {
-            echo ""
-            echo "Starting SQL Server Deployment"
-            echo ""
+            Write-Host ""
+            Write-Host "Starting SQL Server Deployment"
+            Write-Host ""
             Measure-Command { Wait-VMStatus -statusName "SQLInstallStatus" -completeValue "Complete" -VMName $VMName }
         }
     }
     
     if ($killVM) {
-        echo "When you press enter the Virtual Machine will be stopped and deleted"
+        Write-Host "When you press enter the Virtual Machine will be stopped and deleted"
         pause
         if (Test-FAVMExistence -VMName $VMName) {
             Stop-VM -Name $VMName -Force -TurnOff
@@ -585,6 +600,7 @@ Function New-HyperVWindowsServer
         if (Test-Path ($unattendPath + "\AutoUnattend.xml")) { del ($unattendPath + "\AutoUnattend.xml") }
     }
 
+    #Add in clean up tasks - to include clean up of setup.vhdx and removal of autounattend.xml from windows
 
 <#
     Test-FAVMExistence -VMName "Win2012"
