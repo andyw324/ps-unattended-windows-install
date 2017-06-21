@@ -484,13 +484,13 @@ Function New-HyperVWindowsServer
         } else {
             $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i)
             $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -DriveLetter $vhdDriveLetter[$i])
-            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel $vhdLabelArray[$i] -AllocationUnitSize $vhdAllocationUnitSize[$i]"
+            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i])
         }
         $UnattendDiskConfigSection += "`r`n" + '                    <DiskID>' + $i + '</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
                 </Disk>'
     }
-
+     
     # Attach a pre-formatted virtual HDD that houses the relevant setupfiles needed. Assign this to Drive "Z" for easy reference to auto setup scripts etc
     # to be included in the autounattend.xml file.
     if ($includeSetupVHD) {
