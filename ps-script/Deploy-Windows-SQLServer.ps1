@@ -1,11 +1,11 @@
 ﻿Import-Module ..\ps-module\DeployWindowsServer-functions.psm1 -Force
 
 $vhdPath = [Environment]::GetFolderPath('UserProfile') + "\Documents\Hyper-V"
-$unattendPath = "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unattended-windows-install\answer-file"
+$unattendPath = .\ps-unattended-windows-install\answer-file
 $autoISOPath = [Environment]::GetFolderPath('UserProfile') + "\Documents\Hyper-V\auto.iso"
 #$windowsISOPath = [Environment]::GetFolderPath('UserProfile') + "\Documents\Hyper-V\Win2012ServerSTD_unattend.iso"
 $windowsISOPath = [Environment]::GetFolderPath('UserProfile') + "\Documents\Hyper-V\9600.17050.WINBLUE_REFRESH.140317-1640_X64FRE_SERVER_EVAL_EN-US-IR3_SSS_X64FREE_EN-US_DV9.iso"
-$unattendTemplatePath = "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unattended-windows-install\answer-file\AutoUnattend_Template.xml"
+$unattendTemplatePath = ..\answer-file\AutoUnattend_Template.xml
 
 New-HyperVWindowsServer -unattendPath $unattendPath `
                         -autoISOPath $autoISOPath `
@@ -26,6 +26,9 @@ New-HyperVWindowsServer -unattendPath $unattendPath `
                         -showProgress `
                         -includeSetupVHD `
                         -setupVHDXPath "C:\Users\ABCD Family Admin\Documents\Hyper-V\SetupFile.vhdx" `
+                        -FixIPAddress `
+                        -IPAddress "10.0.10.20" `
+                        -DefaultGatewat "10.0.10.1" `
                         -SQLConfigTemplatePath "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unattended-windows-install\sql-server-config-file"
 
 

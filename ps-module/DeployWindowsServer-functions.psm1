@@ -93,25 +93,43 @@ public class ISOFile
 # Function to test whether named switch exists
 Function Test-FAVMSwitchexistence
 {
+    <#
+    
+    #>
+    
     Param(
         [string]$VMSwitchname
     )
-        $Item = (Get-VMSwitch | Where-Object -Property Name -EQ -Value $VMSwitchname).count
-        If($Item -eq '1'){Return $true}else{Return $false}
+    
+    $Item = (Get-VMSwitch | Where-Object -Property Name -EQ -Value $VMSwitchname).count
+    If($Item -eq '1'){Return $true}else{Return $false}
+
 }
 
 # Function to test whether named VM exists
 Function Test-FAVMExistence
 {
+    <#
+    
+    #>
+    
     Param(
         [string]$VMName
     )
-        $Item = (Get-VM | Where-Object -Property Name -EQ -Value $VMName).count
-        If($Item -eq '1'){Return $true}else{Return $false}
+    
+    $Item = (Get-VM | Where-Object -Property Name -EQ -Value $VMName).count
+    If($Item -eq '1'){Return $true}else{Return $false}
+
 }
+
 
 function Get-PaddedOutArray
 {
+    <#
+    
+    
+    
+    #>
     Param(
         [array]$Array,
         [int]$Length,
@@ -133,6 +151,15 @@ function Get-PaddedOutArray
 }
 
 Function Get-VMCustomStatus {
+    <#
+    
+    
+    
+    
+    
+    
+    #>
+
     Param(
         [string]$VMName="Hyper-V Server 2012",
         [string]$GuestParamName="Sessions"
@@ -150,6 +177,12 @@ Function Get-VMCustomStatus {
 }
 
 Function Wait-VMStatus {
+    <#
+    
+    
+    
+    
+    #>
     Param(
         [Parameter(Mandatory=$true)][string]$VMName,
         [Parameter(Mandatory=$true)][string]$statusName,
@@ -165,7 +198,7 @@ Function Wait-VMStatus {
     $status = $null
     $timeOff = 0
     $vmStatus="Running"
-    $curLineLength = 0
+    $curLineLength = 1
     $cmdRun = $false
     do
     {
@@ -176,7 +209,6 @@ Function Wait-VMStatus {
                 $cmdRun = $True
             }
         }
-
         if ($newStatus -eq $status) {
             if ($curLineLength -ge $lineLength) {
                 Write-Host "." -ForegroundColor Yellow
@@ -215,13 +247,13 @@ Function Wait-VMStatus {
         Start-Sleep -Seconds $refreshRateSeconds
     }
     until ($newStatus -eq $completeValue) 
-    ""
+    Write-Host ""
     if ($newStatus -eq $completeValue) {
-        "Process Completed!"
-        ""
+        Write-Host "Process Completed!"
+        Write-Host ""
     } else {
-        "Some possible error encountered - check deployment before proceeding"
-        ""
+        Write-Host "Some possible error encountered - check deployment before proceeding"
+        Write-Host ""
     }
 }
 
@@ -353,36 +385,64 @@ Function New-AutoUnattendXML
     )
 
     $findString = "[[--DiskConfig--]]"
-    $NewUnattendXM = (Get-Content $TempUnattend) | foreach {$_.replace($findString,$UnattendDiskConfigSection)}
-    
+    $NewUnattendXM = (Get-Content $TempUnattend) | foreach {$_.replace($findString,$UnattendDiskConfigSection)}    
     $findString = "[[--ComputerName--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$VMName)}
-
     $findString = "[[--RunSyncSpecializePass--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$UnattendRunSyncCmdSpecialize)}
-
     $findString = "[[--RunSyncOOBEPass--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$UnattendRunSyncCmdOOBE)}
-
-
     $findString = "[[--OrganisationName--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$OrganisationName)}
-
-     
     $findString = "[[--RegOrganisationName--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$OrganisationName)}
-    
-
     $findString = "[[--FullName--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$FullName)}
 
     Set-Content ($autoUnattendPath + "\AutoUnattend.xml") ( $NewUnattendXM | ? {$_.trim() } ) -Encoding UTF8
 }
 
+Function New-SQLServerConfigFile
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$TempConfig,
+        [Parameter(Mandatory=$true)][ValidateLength(1,15)][string]$COMPUTERNAME,
+        [string]$SQLSERVERFEATURES = "SQLENGINE,DQ,AS,DQC,CONN,IS,BC,SDK,BOL,SNAC_SDK",
+        [string]$MSSQLINSTANCENAME = "MSSQLSERVER",
+        [string]$INSTALLDRIVE = "C",
+        [string]$DATADRIVE ="C",
+        [string]$LOGDRIVE ="C",
+        [string]$BACKUPDRIVE = "C",
+        [string]$TEMPDBDRIVE = "C"
+    )
+
+    $findString = "<<--SQLSERVERFEATURES-->>"
+    $NewSQLConf = (Get-Content $TempConfig) | foreach {$_.replace($findString,$SQLSERVERFEATURES)}
+    $findString = "<<--MSSQLINSTANCENAME-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$MSSQLINSTANCENAME)}
+    $findString = "<<--INSTALLDRIVE-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$INSTALLDRIVE)}
+    $findString = "<<--DATADRIVE-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$DATADRIVE)}
+    $findString = "<<--LOGDRIVE-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$LOGDRIVE)}
+    $findString = "<<--BACKUPDRIVE-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$BACKUPDRIVE)}
+    $findString = "<<--TEMPDBDRIVE-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$TEMPDBDRIVE)}
+    $findString = "<<--COMPUTERNAME-->>"
+    $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$COMPUTERNAME)}    
+
+    return $NewSQLConf
+}
 
 Function New-HyperVWindowsServer
 {
-
+    <#
+    
+    #>
+    
+    
     Param(
         [Parameter(Mandatory=$true)][string]$unattendPath,
         [Parameter(Mandatory=$true)][string]$autoISOPath,
@@ -405,7 +465,11 @@ Function New-HyperVWindowsServer
         [switch]$includeSetupVHD,
         [switch]$killVM,
         [switch]$confirmVMSettings,
-        [switch]$showProgress
+        [switch]$showProgress,
+        [string]$SQLConfigTemplatePath,
+        [switch]$FixIPAddress,
+        [string]$IPAddress,
+        [string]$DefaultGateway
     )
 
     # Define and set some baseline parameters
@@ -456,9 +520,6 @@ Function New-HyperVWindowsServer
         }
     }
 
-    
-    # Don't change anything below this line - ignore the errors below, just in case you run the script again without having exited expectedly
-
     # Clear out existing VMs of the same name and virtual HDD and relevant ISOs
     if (Test-FAVMExistence -VMName $VMName) {
         Stop-VM -Name $VMName -Force -TurnOff
@@ -480,11 +541,9 @@ Function New-HyperVWindowsServer
     Set-VMProcessor -VMName $VMName -Count $numCores
     Set-VMMemory -VMName $VMName -StartupBytes $ramSize
     
-
     # Create and add Virtual HDDs and generate Disk Configuration settings for the Unattended Answer File (AutoUnattend.xml)
     $UnattendDiskConfigSection = "`n"   
     for ($i=0;$i -lt $numDrives; $i++) {
-        #"Drive ID = " + ($i+1) + " of size " + $array[$i] + " added"
         New-VHD -Path $vhdPathArray[$i] -BlockSizeBytes $vhdBlockSizeArray[$i] -LogicalSectorSizeBytes $vhdSectorSizeArray[$i] -SizeBytes $vhdSizeArray[$i]
         Add-VMHardDiskDrive -VMName $VMName -Path $vhdPathArray[$i] -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
         
@@ -493,10 +552,7 @@ Function New-HyperVWindowsServer
             $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i -IsBootDisk)
             $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -IsBootDisk -DriveLetter $vhdDriveLetter[$i])
         } else {
-            #$UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i)
-            #$UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -DriveLetter $vhdDriveLetter[$i])
             $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i]) + ' -Confirm:$False'
-            #$InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i])
         }
         $UnattendDiskConfigSection += "`r`n" + '                    <DiskID>' + $i + '</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
@@ -509,7 +565,7 @@ Function New-HyperVWindowsServer
         # Check whether setup vhdx is already attached to a VM
         if ((Get-VHD -Path $setupVHDXPath).Attached) 
         {
-            if (!(Get-VMHardDiskDrive -VMName $VMName | where {$_.Path -eq $setupVHDXPath}) -eq $null)
+            if ((Get-VMHardDiskDrive -VMName $VMName | where {$_.Path -eq $setupVHDXPath}) -ne $null)
             {
                 Get-VMHardDiskDrive -VMName $VMName | where {$_.Path -eq $setupVHDXPath} | Remove-VMHardDiskDrive
             } else {
@@ -522,8 +578,21 @@ Function New-HyperVWindowsServer
         if (Test-Path -Path ($setupDisk.DriveLetter + ':\temp')) {Remove-Item ($setupDisk.DriveLetter + ':\temp') -Force -Recurse}
         mkdir ($setupDisk.DriveLetter + ':\temp')
         Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigDrives.ps1') $InitPartFormatDrives -Encoding UTF8
+
+        if ($SQLConfigTemplatePath -ne "") {
+            $SQLConfigFileContent = ( New-SQLServerConfigFile -TempConfig $SQLConfigTemplatePath `
+                                                            -COMPUTERNAME $VMName `
+                                                            -MSSQLINSTANCENAME TESTSQLSVR `
+                                                            -INSTALLDRIVE S `
+                                                            -DATADRIVE D `
+                                                            -LOGDRIVE E `
+                                                            -TEMPDBDRIVE F `
+                                                            -BACKUPDRIVE G )
+            Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigurationFile.ini') ( $NewSQLConf ) -Encoding UTF8
+        }
         Dismount-VHD -Path $setupVHDXPath
 
+        # Add setup VHD to VM
         Add-VMHardDiskDrive -VMName $VMName -Path $setupVHDXPath -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
         $setupDiskNumber = $i
         $UnattendDiskConfigSection += "`r`n" + '                <Disk wcm:action="add">'
@@ -536,24 +605,23 @@ Function New-HyperVWindowsServer
     # Create the relevant runSynchronous commands to be run during the Specialise pass of the Windows install
     $UnattendRunSyncCmdSpecialise += "`r`n" + (Set-AutoUnattendRunSyncCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Specialize-Pass' -Order $SpecialiseRunSyncCommandOrder)
     $SpecialiseRunSyncCommandOrder += 1
-    #$UnattendRunSyncCmdSpecialise += "`r`n" + (Set-AutoUnattendRunSyncCmd -Command ('PowerShell Set-Disk ' + $setupDiskNumber + ' -IsOffline $false') -Order $SpecialiseRunSyncCommandOrder)
-    #$SpecialiseRunSyncCommandOrder += 1
     
     # Create the relevant FirstLogonCommand commands to be run during the OOBE pass of the windows install
+    if (($IPAddress -ne "") -and ($DefaultGateway -ne "")) {
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell -Command "Get-NetIPConfiguration | New-NetIPAddress -IPAddress ' + $IPAddress + ' -PrefixLength 24 -DefaultGateway ' + $DefaultGateway + '"') -Order $FirstLogonCommandOrder)
+        $FirstLogonCommandOrder += 1
+    }
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell Set-Disk ' + $setupDiskNumber + ' -IsOffline $false') -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\temp\ConfigDrives.ps1' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Complete' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
-    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\SQL_Server_Deployment.ps1' -Order $FirstLogonCommandOrder)
-    $FirstLogonCommandOrder += 1
-    
-    
-    for ($i=1;$i -lt $numDrives; $i++) {
-        
+    if ($SQLConfigTemplatePath -ne "") {
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\SQL_Server_Deployment.ps1 -ConfigFilePath Z:\temp\ConfigurationFile.ini' -Order $FirstLogonCommandOrder)
+        $FirstLogonCommandOrder += 1
     }
-
+    
     New-AutoUnattendXML -TempUnattend $unattendTemplatePath `
                         -VMName $VMName `
                         -autoUnattendPath $unattendPath `
@@ -561,8 +629,8 @@ Function New-HyperVWindowsServer
                         -UnattendRunSyncCmdSpecialize $UnattendRunSyncCmdSpecialise `
                         -UnattendRunSyncCmdOOBE $UnattendFirstLogonCmd
     
-    Write-Host "Check AutoUnattend.xml created before continuing"
-    Pause
+    # Write-Host "Check AutoUnattend.xml created before continuing"
+    # Pause
     
     # Create ISO with the autogenerated AutoUnattend.xml file
     dir $unattendPath\autounattend.xml | New-IsoFile -Path $autoISOPath -Media CDR -Title "Unattend"
@@ -571,7 +639,6 @@ Function New-HyperVWindowsServer
     if ($vmGen -eq 1) {
         Set-VMDvdDrive -VMName $VMName -Path $windowsISOpath -ControllerNumber 1 -ControllerLocation 0
         Add-VMDvdDrive -VMName $VMName -Path $autoISOPath -ControllerNumber 1 -ControllerLocation 1
-        
     } else {
         Add-VMDvdDrive -VMName $VMName -Path $windowsISOPath -ControllerNumber 0 -ControllerLocation ($i+1)
         $bootDevice = Get-VMDvdDrive -VMName $VMName
@@ -591,7 +658,7 @@ Function New-HyperVWindowsServer
         Write-Host ""
         Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName -Command "Get-VMDvdDrive -VMName $VMName | Remove-VMDvdDrive" -runCmd -runCmdStatus "Specialize-Pass" }
 
-        if ((Test-FAVMExistence -VMName $VMName) -and (!(Get-VM -Name $VMName).State -eq "Off")) {
+        if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($SQLConfigTemplatePath -ne "")) {
             Write-Host ""
             Write-Host "Starting SQL Server Deployment"
             Write-Host ""
@@ -615,8 +682,4 @@ Function New-HyperVWindowsServer
 
     #Add in clean up tasks - to include clean up of setup.vhdx and removal of autounattend.xml from windows
 
-<#
-    Test-FAVMExistence -VMName "Win2012"
-    Test-FAVMSwitchexistence -VMSwitchname "vSwitch"
-#>
 }
