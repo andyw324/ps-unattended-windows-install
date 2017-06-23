@@ -552,7 +552,7 @@ Function New-HyperVWindowsServer
             $UnattendDiskConfigSection += "`r`n" + (Add-AutoUnattendDisk -DiskNumber $i -IsBootDisk)
             $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -IsBootDisk -DriveLetter $vhdDriveLetter[$i])
         } else {
-            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i]) + ' -Confirm:$False'
+            $InitPartFormatDrives += "`r`nGet-Disk -Number $i | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -UseMaximumSize -DriveLetter " + ($vhdDriveLetter[$i]) + " | Format-Volume -FileSystem NTFS -NewFileSystemLabel " + ($vhdLabelArray[$i]) + " -AllocationUnitSize " + ( $vhdAllocationUnitSize[$i]) + ' -Confirm:$False'
         }
         $UnattendDiskConfigSection += "`r`n" + '                    <DiskID>' + $i + '</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
@@ -588,7 +588,7 @@ Function New-HyperVWindowsServer
                                                             -LOGDRIVE E `
                                                             -TEMPDBDRIVE F `
                                                             -BACKUPDRIVE G )
-            Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigurationFile.ini') ( $NewSQLConf ) -Encoding UTF8
+            Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigurationFile.ini') ( $SQLConfigFileContent ) -Encoding UTF8
         }
         Dismount-VHD -Path $setupVHDXPath
 
