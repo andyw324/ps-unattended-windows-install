@@ -377,12 +377,19 @@ Function New-AutoUnattendXML
         [Parameter(Mandatory=$true)][string]$TempUnattend,
         [Parameter(Mandatory=$true)][ValidateLength(1,15)][string]$VMName,
         [Parameter(Mandatory=$true)][string]$autoUnattendPath,
+        [Parameter(Mandatory=$true)][string]$adminPWD,
+        [Parameter(Mandatory=$true)][string]$autologinPWD,
+        [Parameter(Mandatory=$true)][string]$adminUserName,
         [string]$UnattendDiskConfigSection = "",
         [string]$UnattendRunSyncCmdSpecialize = "",
         [string]$UnattendRunSyncCmdOOBE = "",
         [string]$FullName ="NotDefined",
         [string]$OrganisationName = "NotDefined"
     )
+    
+    $DefaultWinAdminPWD="UABhAHMAcwB3AG8AcgBkADEAMgAzACEAQQBkAG0AaQBuAGkAcwB0AHIAYQB0AG8AcgBQAGEAcwBzAHcAbwByAGQA"
+    $DefaultWinAutoLoginPWD="UABhAHMAcwB3AG8AcgBkADEAMgAzACEAUABhAHMAcwB3AG8AcgBkAA=="
+
 
     $findString = "[[--DiskConfig--]]"
     $NewUnattendXM = (Get-Content $TempUnattend) | foreach {$_.replace($findString,$UnattendDiskConfigSection)}    
@@ -398,6 +405,29 @@ Function New-AutoUnattendXML
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$OrganisationName)}
     $findString = "[[--FullName--]]"
     $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$FullName)}
+
+    $findString = "[[--AutoLoginPwd--]]"
+    $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$autologinPWD)}
+    
+    $findString = "[[--AutoLoginPlainText--]]"
+    if ($autologinPWD -eq $DefaultWinAutoLoginPWD) {
+        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,"False")}
+    } else {
+        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,"True")}
+    }
+
+    $findString = "[[--AdminUserName--]]"
+    $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$adminUserName)}
+    $findString = "[[--AdminPwd--]]"
+    $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,$adminPWD)}
+    
+    $findString = "[[--AdminPwdPlainText--]]"
+    if ($adminPWD -eq $DefaultWinAdminPWD) {
+        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,"False")}
+    } else {
+        $NewUnattendXM = $NewUnattendXM | foreach {$_.replace($findString,"True")}
+    }
+
 
     Set-Content ($autoUnattendPath + "\AutoUnattend.xml") ( $NewUnattendXM | ? {$_.trim() } ) -Encoding UTF8
 }
@@ -415,7 +445,7 @@ Function New-SQLServerConfigFile
         [string]$BACKUPDRIVE = "C",
         [string]$TEMPDBDRIVE = "C"
     )
-
+    
     $findString = "<<--SQLSERVERFEATURES-->>"
     $NewSQLConf = (Get-Content $TempConfig) | foreach {$_.replace($findString,$SQLSERVERFEATURES)}
     $findString = "<<--MSSQLINSTANCENAME-->>"
@@ -432,6 +462,7 @@ Function New-SQLServerConfigFile
     $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$TEMPDBDRIVE)}
     $findString = "<<--COMPUTERNAME-->>"
     $NewSQLConf = $NewSQLConf | foreach {$_.replace($findString,$COMPUTERNAME)}    
+
 
     return $NewSQLConf
 }
@@ -469,7 +500,11 @@ Function New-HyperVWindowsServer
         [string]$SQLConfigTemplatePath,
         [switch]$FixIPAddress,
         [string]$IPAddress,
-        [string]$DefaultGateway
+        [string]$DefaultGateway,
+        [string]$WinAdminPWD="UABhAHMAcwB3AG8AcgBkADEAMgAzACEAQQBkAG0AaQBuAGkAcwB0AHIAYQB0AG8AcgBQAGEAcwBzAHcAbwByAGQA",
+        [string]$WinAutoLoginPWD="UABhAHMAcwB3AG8AcgBkADEAMgAzACEAUABhAHMAcwB3AG8AcgBkAA==",
+        [string]$AdminUserName="Administrator"
+
     )
 
     # Define and set some baseline parameters
@@ -594,6 +629,7 @@ Function New-HyperVWindowsServer
 
         # Add setup VHD to VM
         Add-VMHardDiskDrive -VMName $VMName -Path $setupVHDXPath -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
+        $setupDisk = Get-VMHardDiskDrive -VMName $VMName -ControllerType SCSI -ControllerNumber 0 -ControllerLocation $i
         $setupDiskNumber = $i
         $UnattendDiskConfigSection += "`r`n" + '                <Disk wcm:action="add">'
         $UnattendDiskConfigSection += "`r`n" + (Set-AutoUnattendDisk -DiskNumber $i -IsSetupDisk -DriveLetter "Z")
@@ -627,7 +663,10 @@ Function New-HyperVWindowsServer
                         -autoUnattendPath $unattendPath `
                         -UnattendDiskConfigSection $UnattendDiskConfigSection `
                         -UnattendRunSyncCmdSpecialize $UnattendRunSyncCmdSpecialise `
-                        -UnattendRunSyncCmdOOBE $UnattendFirstLogonCmd
+                        -UnattendRunSyncCmdOOBE $UnattendFirstLogonCmd `
+                        -autologinPWD $WinAutoLoginPWD `
+                        -adminPWD $WinAdminPWD `
+                        -adminUserName $AdminUserName
     
     # Write-Host "Check AutoUnattend.xml created before continuing"
     # Pause
@@ -665,7 +704,17 @@ Function New-HyperVWindowsServer
             Measure-Command { Wait-VMStatus -statusName "SQLInstallStatus" -completeValue "Complete" -VMName $VMName }
         }
     }
-    
+
+    # Need to include script to copy over install files or figure out way of tracking when silent installs of SSMS SSDT PBIRS etc complete.
+
+    # Remove drive from VM
+    $setupDisk | Remove-VMHardDiskDrive
+    # Mount drive locally
+    $setupDisk = Mount-VHD –Path $setupVHDXPath –PassThru | Get-Disk | Get-Partition | Get-Volume
+    # Remove temp files to prevent wrong scripts being run
+    if (Test-Path -Path ($setupDisk.DriveLetter + ':\temp')) {Remove-Item ($setupDisk.DriveLetter + ':\temp') -Force -Recurse}
+    Dismount-VHD -Path $setupVHDXPath
+
     if ($killVM) {
         Write-Host "When you press enter the Virtual Machine will be stopped and deleted"
         pause
