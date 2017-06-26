@@ -503,7 +503,12 @@ Function New-HyperVWindowsServer
         [string]$DefaultGateway,
         [string]$WinAdminPWD="UABhAHMAcwB3AG8AcgBkADEAMgAzACEAQQBkAG0AaQBuAGkAcwB0AHIAYQB0AG8AcgBQAGEAcwBzAHcAbwByAGQA",
         [string]$WinAutoLoginPWD="UABhAHMAcwB3AG8AcgBkADEAMgAzACEAUABhAHMAcwB3AG8AcgBkAA==",
-        [string]$AdminUserName="Administrator"
+        [string]$AdminUserName="Administrator",
+        [switch]$InstallSSMS,
+        [string]$LogFileSSMS,
+        [switch]$InstallSSDT,
+        [switch]$LogFileSSDT,
+        [switch]$InstallPBI
 
     )
 
