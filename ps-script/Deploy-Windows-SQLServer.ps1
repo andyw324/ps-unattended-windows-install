@@ -8,6 +8,7 @@ $windowsISOPath = "C:\Users\ABCD Family Admin\Documents\Hyper-V\Win2012ServerSTD
 $unattendTemplatePath = "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unattended-windows-install\answer-file\AutoUnattend_Template.xml"
 $SQLConfigTemplatePath = "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unattended-windows-install\sql-server-config-file\Template-SQLServerConfigurationFile.ini"
 $setupVHDXPath = "C:\Users\ABCD Family Admin\Documents\Hyper-V\SetupFile.vhdx"
+$DeploymentScriptPath = "C:\Users\ABCD Family Admin\Documents\PS Scripts\ps-unattended-windows-install\ps-script\InstallVHD\Deployment_Scripts"
 
 New-HyperVWindowsServer -unattendPath $unattendPath `
                         -autoISOPath $autoISOPath `
@@ -28,7 +29,8 @@ New-HyperVWindowsServer -unattendPath $unattendPath `
                         -showProgress `
                         -includeSetupVHD `
                         -setupVHDXPath $setupVHDXPath `
-                        -SQLConfigTemplatePath $SQLConfigTemplatePath
+                        -SQLConfigTemplatePath $SQLConfigTemplatePath `
+                        -DeploymentScriptPath $DeploymentScriptPaths
                         #-FixIPAddress `
                         #-IPAddress "10.0.10.20" `
                         #-DefaultGatewat "10.0.10.1" `

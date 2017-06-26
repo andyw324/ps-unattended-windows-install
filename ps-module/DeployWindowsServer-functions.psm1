@@ -493,11 +493,13 @@ Function New-HyperVWindowsServer
         [int]$numDrives = 1,
         [int]$vmGen = 2,
         [string]$setupVHDXPath = "C:\Users\ABCD Family Admin\Documents\Hyper-V\SetupFiles.vhdx",
+        [string]$DeploymentScriptPath,
         [switch]$includeSetupVHD,
         [switch]$killVM,
         [switch]$confirmVMSettings,
         [switch]$showProgress,
         [string]$SQLConfigTemplatePath,
+        [string]$SQLSERVERFEATURES,
         [switch]$FixIPAddress,
         [string]$IPAddress,
         [string]$DefaultGateway,
@@ -508,7 +510,10 @@ Function New-HyperVWindowsServer
         [string]$LogFileSSMS,
         [switch]$InstallSSDT,
         [switch]$LogFileSSDT,
-        [switch]$InstallPBI
+        [switch]$InstallPBI,
+        [string]$pbirsInstallDirectory,
+        [string]$LogFilePBIRS,
+        [string]$pbirsProdKey
 
     )
 
@@ -617,7 +622,14 @@ Function New-HyperVWindowsServer
         $setupDisk = Mount-VHD –Path $setupVHDXPath –PassThru | Get-Disk | Get-Partition | Get-Volume
         if (Test-Path -Path ($setupDisk.DriveLetter + ':\temp')) {Remove-Item ($setupDisk.DriveLetter + ':\temp') -Force -Recurse}
         mkdir ($setupDisk.DriveLetter + ':\temp')
+
         Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigDrives.ps1') $InitPartFormatDrives -Encoding UTF8
+        
+        if (Test-Path -Path ($setupDisk.DriveLetter + ':\Deployment_Scripts')) {Remove-Item ($setupDisk.DriveLetter + ':\Deployment_Scripts') -Force -Recurse}
+        if ($DeploymentScriptPath -ne "") {
+            Copy-Item $DeploymentScriptPath -Destination ($setupDisk.DriveLetter + ':\Deployment_Scripts') -Recurse
+        }
+
 
         if ($SQLConfigTemplatePath -ne "") {
             $SQLConfigFileContent = ( New-SQLServerConfigFile -TempConfig $SQLConfigTemplatePath `
@@ -627,8 +639,9 @@ Function New-HyperVWindowsServer
                                                             -DATADRIVE D `
                                                             -LOGDRIVE E `
                                                             -TEMPDBDRIVE F `
-                                                            -BACKUPDRIVE G )
-            Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigurationFile.ini') ( $SQLConfigFileContent ) -Encoding UTF8
+                                                            -BACKUPDRIVE G `
+                                                            -SQLSERVERFEATURES $SQLSERVERFEATURES)
+            Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigurationFile.ini') $SQLConfigFileContent -Encoding UTF8
         }
         Dismount-VHD -Path $setupVHDXPath
 
@@ -658,11 +671,20 @@ Function New-HyperVWindowsServer
     $FirstLogonCommandOrder += 1
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Complete' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
+    # Include some sort of check for .Net version before commencing with install???
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\Deployment_Scripts\LatestDotNetFramework_Deployment.ps1' -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1
+    
+    if ($InstallPBI) {
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell Z:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -installDirectory ' + $pbirsInstallDirectory + ' -logLocation ' + $LogFilePBIRS) -Order $FirstLogonCommandOrder)
+        $FirstLogonCommandOrder += 1
+    }
     if ($SQLConfigTemplatePath -ne "") {
-        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\SQL_Server_Deployment.ps1 -ConfigFilePath Z:\temp\ConfigurationFile.ini' -Order $FirstLogonCommandOrder)
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\Deployment_Scripts\SQL_Server_Deployment.ps1 -ConfigFilePath Z:\temp\ConfigurationFile.ini' -Order $FirstLogonCommandOrder)
         $FirstLogonCommandOrder += 1
     }
     
+
     New-AutoUnattendXML -TempUnattend $unattendTemplatePath `
                         -VMName $VMName `
                         -autoUnattendPath $unattendPath `
@@ -702,12 +724,25 @@ Function New-HyperVWindowsServer
         Write-Host ""
         Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName -Command "Get-VMDvdDrive -VMName $VMName | Remove-VMDvdDrive" -runCmd -runCmdStatus "Specialize-Pass" }
 
+        Write-Host "Installing latest .Net Framework"
+        Write-Host ""
+        Measure-Command { Wait-VMStatus -statusName "DotNetInstallStatus" -completeValue "Complete" -VMName $VMName }
+
+        if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($InstallPBI)) {
+            Write-Host ""
+            Write-Host "Starting Power BI Report Server Deployment"
+            Write-Host ""
+            Measure-Command { Wait-VMStatus -statusName "PBIRSInstallStatus" -completeValue "Complete" -VMName $VMName }
+        }
+
         if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($SQLConfigTemplatePath -ne "")) {
             Write-Host ""
             Write-Host "Starting SQL Server Deployment"
             Write-Host ""
             Measure-Command { Wait-VMStatus -statusName "SQLInstallStatus" -completeValue "Complete" -VMName $VMName }
         }
+
+
     }
 
     # Need to include script to copy over install files or figure out way of tracking when silent installs of SSMS SSDT PBIRS etc complete.
