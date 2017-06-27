@@ -60,7 +60,7 @@
                     <PlainText>[[--AutoLoginPlainText--]]</PlainText>
                 </Password>
                 <Enabled>true</Enabled>
-                <LogonCount>2</LogonCount>
+                <LogonCount>3</LogonCount>
                 <Username>[[--AdminUserName--]]</Username>
             </AutoLogon>
             <UserAccounts>

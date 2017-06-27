@@ -517,14 +517,18 @@ Function New-HyperVWindowsServer
 
     )
 
+# 
+# 
+# 
+# 
+# 
+
     # Define and set some baseline parameters
     $FirstLogonCommandOrder = 1
     $SpecialiseRunSyncCommandOrder = 1
     $InitPartFormatDrives = 'Write-Host "Begining Initializing, partitioning and formatting system disks"'
 
 
-    # Credit to script by Albal
-    
     #Pad out arrays
     $vhdPathArray = Get-PaddedOutArray -Array $vhdPathArray -Length $numDrives
     $vhdSizeArray = Get-PaddedOutArray -Array $vhdSizeArray -Length $numDrives
@@ -533,6 +537,13 @@ Function New-HyperVWindowsServer
     $vhdLabelArray = Get-PaddedOutArray -Array $vhdLabelArray -Length $numDrives
     $vhdDriveLetter = Get-PaddedOutArray -Array $vhdDriveLetter -Length $numDrives -IsDriveLetter
 
+    
+# 
+# 
+# 
+# 
+# 
+    
     if ($confirmVMSettings) {
         # VM Input Parameters:
         Write-Host "VM Settings:"
@@ -565,18 +576,32 @@ Function New-HyperVWindowsServer
         }
     }
 
+# 
+# 
+# 
+# 
+# 
+
     # Clear out existing VMs of the same name and virtual HDD and relevant ISOs
     if (Test-FAVMExistence -VMName $VMName) {
         Stop-VM -Name $VMName -Force -TurnOff
         Remove-VM  -Name $VMName -Force
     }
 
+#
     if (Test-Path $autoISOPath) { del -Force $autoISOPath }
     for ($i=0;$i -lt $numDrives; $i++) {
         if (Test-Path $vhdPathArray[$i]) { del -Force $vhdPathArray[$i] }
     }
 
+#
     if (Test-Path ($unattendPath + "\AutoUnattend.xml")) { del ($unattendPath + "\AutoUnattend.xml") }
+
+# 
+# 
+# 
+# 
+# 
 
     # Check defined virtual switch exists. If not then create a Private Vitual Switch
     if (!(Test-FAVMSwitchexistence -VMSwitchname $switch)) { New-VMSwitch -Name $switch -SwitchType Private -Notes "Internal to VMs only" }
@@ -585,7 +610,15 @@ Function New-HyperVWindowsServer
     New-VM -Name $VMName -SwitchName $switch -Generation $vmGen
     Set-VMProcessor -VMName $VMName -Count $numCores
     Set-VMMemory -VMName $VMName -StartupBytes $ramSize
-    
+
+
+# 
+# 
+# 
+# 
+# 
+#
+
     # Create and add Virtual HDDs and generate Disk Configuration settings for the Unattended Answer File (AutoUnattend.xml)
     $UnattendDiskConfigSection = "`n"   
     for ($i=0;$i -lt $numDrives; $i++) {
@@ -603,7 +636,16 @@ Function New-HyperVWindowsServer
                     <WillWipeDisk>true</WillWipeDisk>
                 </Disk>'
     }
-     
+
+
+# 
+# 
+# 
+# 
+# 
+#
+#
+
     # Attach a pre-formatted virtual HDD that houses the relevant setupfiles needed. Assign this to Drive "Z" for easy reference to auto setup scripts etc
     # to be included in the autounattend.xml file.
     if ($includeSetupVHD) {
@@ -620,16 +662,25 @@ Function New-HyperVWindowsServer
 
         # Add custom scripts to be called from the FirstLogonCommands during the OODE Pass of the windows install
         $setupDisk = Mount-VHD –Path $setupVHDXPath –PassThru | Get-Disk | Get-Partition | Get-Volume
+
+#
+
         if (Test-Path -Path ($setupDisk.DriveLetter + ':\temp')) {Remove-Item ($setupDisk.DriveLetter + ':\temp') -Force -Recurse}
+        if (Test-Path -Path ($setupDisk.DriveLetter + ':\Deployment_Scripts')) {Remove-Item ($setupDisk.DriveLetter + ':\Deployment_Scripts') -Force -Recurse}
+ 
+ 
+ #
+ 
         mkdir ($setupDisk.DriveLetter + ':\temp')
 
         Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigDrives.ps1') $InitPartFormatDrives -Encoding UTF8
-        
-        if (Test-Path -Path ($setupDisk.DriveLetter + ':\Deployment_Scripts')) {Remove-Item ($setupDisk.DriveLetter + ':\Deployment_Scripts') -Force -Recurse}
+    
         if ($DeploymentScriptPath -ne "") {
             Copy-Item $DeploymentScriptPath -Destination ($setupDisk.DriveLetter + ':\Deployment_Scripts') -Recurse
         }
 
+
+#
 
         if ($SQLConfigTemplatePath -ne "") {
             $SQLConfigFileContent = ( New-SQLServerConfigFile -TempConfig $SQLConfigTemplatePath `
@@ -643,6 +694,29 @@ Function New-HyperVWindowsServer
                                                             -SQLSERVERFEATURES $SQLSERVERFEATURES)
             Set-Content ($setupDisk.DriveLetter + ':\temp\ConfigurationFile.ini') $SQLConfigFileContent -Encoding UTF8
         }
+
+#
+
+        Set-Content ($setupDisk.DriveLetter + ':\temp\logDotNetInstall.ps1') "Write-Output 'Installing .Net Framework v4.5.2' `r`nZ:\Deployment_Scripts\LatestDotNetFramework_Deployment.ps1 -Force -DoRestart | Out-File C:\automation_log -Append" -Encoding UTF8
+        if ($pbirsProdKey -ne "") {
+            Set-Content ($setupDisk.DriveLetter + ':\temp\logPBIInstall.ps1') "Write-Output 'Installing Power BI Report Server' `r`nZ:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -InstallDirectory $pbirsInstallDirectory -logLocation $LogFilePBIRS -productKey $pbirsProdKey -Restart | Out-File C:\automation_log -Append" -Encoding UTF8
+        } else {
+            Set-Content ($setupDisk.DriveLetter + ':\temp\logPBIInstall.ps1') "Write-Output 'Installing Power BI Report Server' `r`nZ:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -InstallDirectory $pbirsInstallDirectory -logLocation $LogFilePBIRS -Restart | Out-File C:\automation_log -Append" -Encoding UTF8
+        }
+        Set-Content ($setupDisk.DriveLetter + ':\temp\logSQLInstall.ps1') "Write-Output 'Installing SQL Server 2016' `r`nZ:\Deployment_Scripts\SQL_Server_Deployment.ps1 -ConfigFilePath Z:\temp\ConfigurationFile.ini -Restart | Out-File C:\automation_log -Append" -Encoding UTF8
+
+        
+
+
+#
+#
+#
+#
+#
+#
+
+#
+
         Dismount-VHD -Path $setupVHDXPath
 
         # Add setup VHD to VM
@@ -656,34 +730,161 @@ Function New-HyperVWindowsServer
                 </Disk>'
     }
 
+
+#
+#
+#
+#
+#
+#
+
+#
+
     # Create the relevant runSynchronous commands to be run during the Specialise pass of the Windows install
     $UnattendRunSyncCmdSpecialise += "`r`n" + (Set-AutoUnattendRunSyncCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Specialize-Pass' -Order $SpecialiseRunSyncCommandOrder)
     $SpecialiseRunSyncCommandOrder += 1
     
+
+#
+
     # Create the relevant FirstLogonCommand commands to be run during the OOBE pass of the windows install
+
+#
     if (($IPAddress -ne "") -and ($DefaultGateway -ne "")) {
         $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell -Command "Get-NetIPConfiguration | New-NetIPAddress -IPAddress ' + $IPAddress + ' -PrefixLength 24 -DefaultGateway ' + $DefaultGateway + '"') -Order $FirstLogonCommandOrder)
         $FirstLogonCommandOrder += 1
     }
+
+
+#
+
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell Set-Disk ' + $setupDiskNumber + ' -IsOffline $false') -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
+ 
+ 
+ #
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\temp\ConfigDrives.ps1' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
+ 
+ 
+ #
+ 
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Complete' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Include some sort of check for .Net version before commencing with install???
-    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\Deployment_Scripts\LatestDotNetFramework_Deployment.ps1' -Order $FirstLogonCommandOrder)
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\temp\logDotNetInstall.ps1' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
     
+#  
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command "Echo Skipped due to restart" -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1
+    
+#   
     if ($InstallPBI) {
-        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell Z:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -installDirectory ' + $pbirsInstallDirectory + ' -logLocation ' + $LogFilePBIRS) -Order $FirstLogonCommandOrder)
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command ('PowerShell Z:\temp\logPBIInstall.ps1') -Order $FirstLogonCommandOrder)
+        $FirstLogonCommandOrder += 1
+
+#
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command "Echo Skipped due to restart" -Order $FirstLogonCommandOrder)
         $FirstLogonCommandOrder += 1
     }
+
+#
     if ($SQLConfigTemplatePath -ne "") {
         $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\Deployment_Scripts\SQL_Server_Deployment.ps1 -ConfigFilePath Z:\temp\ConfigurationFile.ini' -Order $FirstLogonCommandOrder)
         $FirstLogonCommandOrder += 1
+
+#
+        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command "Echo Skipped due to restart" -Order $FirstLogonCommandOrder)
+        $FirstLogonCommandOrder += 1
     }
-    
+
+#
+#
+#
+#
+#
+#    
 
     New-AutoUnattendXML -TempUnattend $unattendTemplatePath `
                         -VMName $VMName `
@@ -694,9 +895,7 @@ Function New-HyperVWindowsServer
                         -autologinPWD $WinAutoLoginPWD `
                         -adminPWD $WinAdminPWD `
                         -adminUserName $AdminUserName
-    
-    # Write-Host "Check AutoUnattend.xml created before continuing"
-    # Pause
+
     
     # Create ISO with the autogenerated AutoUnattend.xml file
     dir $unattendPath\autounattend.xml | New-IsoFile -Path $autoISOPath -Media CDR -Title "Unattend"
@@ -713,6 +912,12 @@ Function New-HyperVWindowsServer
         Set-VMFirmware -VMName $VMName -EnableSecureBoot Off
 
     }
+
+#
+#
+#
+#
+#
 
     #Start the VM
     Start-VM -Name $VMName
@@ -745,6 +950,12 @@ Function New-HyperVWindowsServer
 
     }
 
+#
+#
+#
+#
+#
+
     # Need to include script to copy over install files or figure out way of tracking when silent installs of SSMS SSDT PBIRS etc complete.
 
     # Remove drive from VM
@@ -753,7 +964,15 @@ Function New-HyperVWindowsServer
     $setupDisk = Mount-VHD –Path $setupVHDXPath –PassThru | Get-Disk | Get-Partition | Get-Volume
     # Remove temp files to prevent wrong scripts being run
     if (Test-Path -Path ($setupDisk.DriveLetter + ':\temp')) {Remove-Item ($setupDisk.DriveLetter + ':\temp') -Force -Recurse}
+    if (Test-Path -Path ($setupDisk.DriveLetter + ':\Deployment_Scripts')) {Remove-Item ($setupDisk.DriveLetter + ':\Deployment_Scripts') -Force -Recurse}
     Dismount-VHD -Path $setupVHDXPath
+
+
+#
+#
+#
+#
+#
 
     if ($killVM) {
         Write-Host "When you press enter the Virtual Machine will be stopped and deleted"
