@@ -699,9 +699,9 @@ Function New-HyperVWindowsServer
 
         Set-Content ($setupDisk.DriveLetter + ':\temp\logDotNetInstall.ps1') "Write-Output 'Installing .Net Framework v4.5.2' `r`nZ:\Deployment_Scripts\LatestDotNetFramework_Deployment.ps1 -Force -DoRestart | Out-File C:\automation_log -Append" -Encoding UTF8
         if ($pbirsProdKey -ne "") {
-            Set-Content ($setupDisk.DriveLetter + ':\temp\logPBIInstall.ps1') "Write-Output 'Installing Power BI Report Server' `r`nZ:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -InstallDirectory $pbirsInstallDirectory -logLocation $LogFilePBIRS -productKey $pbirsProdKey -Restart | Out-File C:\automation_log -Append" -Encoding UTF8
+            Set-Content ($setupDisk.DriveLetter + ':\temp\logPBIInstall.ps1') "Write-Output 'Installing Power BI Report Server' `r`nZ:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -InstallDirectory $pbirsInstallDirectory -logLocation $LogFilePBIRS -productKey $pbirsProdKey | Out-File C:\automation_log -Append" -Encoding UTF8
         } else {
-            Set-Content ($setupDisk.DriveLetter + ':\temp\logPBIInstall.ps1') "Write-Output 'Installing Power BI Report Server' `r`nZ:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -InstallDirectory $pbirsInstallDirectory -logLocation $LogFilePBIRS -Restart | Out-File C:\automation_log -Append" -Encoding UTF8
+            Set-Content ($setupDisk.DriveLetter + ':\temp\logPBIInstall.ps1') "Write-Output 'Installing Power BI Report Server' `r`nZ:\Deployment_Scripts\PowerBIReportServer_Deployment.ps1 -InstallDirectory $pbirsInstallDirectory -logLocation $LogFilePBIRS | Out-File C:\automation_log -Append" -Encoding UTF8
         }
         Set-Content ($setupDisk.DriveLetter + ':\temp\logSQLInstall.ps1') "Write-Output 'Installing SQL Server 2016' `r`nZ:\Deployment_Scripts\SQL_Server_Deployment.ps1 -ConfigFilePath Z:\temp\ConfigurationFile.ini -Restart | Out-File C:\automation_log -Append" -Encoding UTF8
 
@@ -865,8 +865,8 @@ Function New-HyperVWindowsServer
         $FirstLogonCommandOrder += 1
 
 #
-        $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command "Echo Skipped due to restart" -Order $FirstLogonCommandOrder)
-        $FirstLogonCommandOrder += 1
+        # $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command "Echo Skipped due to restart" -Order $FirstLogonCommandOrder)
+        # $FirstLogonCommandOrder += 1
     }
 
 #
