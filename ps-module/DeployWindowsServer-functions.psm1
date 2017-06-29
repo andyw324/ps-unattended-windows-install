@@ -192,7 +192,8 @@ Function Wait-VMStatus {
         [int]$timeout=10,
         [int]$lineLength=50,
         [switch]$runCmd,
-        [string]$runCmdStatus
+        [string]$runCmdStatus,
+        [switch]$hideProgress
     )
 
     $status = $null
@@ -203,44 +204,47 @@ Function Wait-VMStatus {
     do
     {
         $newStatus = Get-VMCustomStatus -VMName $VMName -GuestParamName $statusName
-        if ($runCmd) {
-            if (($newStatus -eq $runCmdStatus) -and !($cmdRun)) {
-                PowerShell $Command
-                $cmdRun = $True
+        if (!($hideProgress)) {
+            #$newStatus = Get-VMCustomStatus -VMName $VMName -GuestParamName $statusName
+            if ($runCmd) {
+                if (($newStatus -eq $runCmdStatus) -and !($cmdRun)) {
+                    PowerShell $Command
+                    $cmdRun = $True
+                }
             }
-        }
-        if ($newStatus -eq $status) {
-            if ($curLineLength -ge $lineLength) {
-                Write-Host "." -ForegroundColor Yellow
-                $curLineLength = 0
-            } else {
-                Write-Host "." -NoNewline -ForegroundColor Yellow
-            }
-            $curLineLength += 1
-        } else {
-            if ($curLineLength -ge $lineLength) {
-                Write-Host $newStatus -ForegroundColor White
-                $curLineLength = 0
-            } else {
-                Write-Host $newStatus -NoNewline -ForegroundColor White
-            }
-           
-            $status = $newStatus
-            $curLineLength += $newStatus.Length
-        }
-        if (( Get-VM -VMName $VMName).State -eq "Running") {
-            $timeOff = 0
-        } else {
-            $timeOff += $refreshRateSeconds
-            if ($timeOff -gt $timeout) {
-                Write-Host ""
-                $continue = Read-Host -Prompt "The VM has been powered off for more than $timeout seconds. Do you wish to exit the progress status?[Y/N]"
-                if ($continue -ne "Y") {
-                    $timeoff = 0
+            if ($newStatus -eq $status) {
+                if ($curLineLength -ge $lineLength) {
+                    Write-Host "." -ForegroundColor Yellow
+                    $curLineLength = 0
                 } else {
-                    Write-Host "Warning, user disabled status prompt, VM may still be in-use. Check before removing"
+                    Write-Host "." -NoNewline -ForegroundColor Yellow
+                }
+                $curLineLength += 1
+            } else {
+                if ($curLineLength -ge $lineLength) {
+                    Write-Host $newStatus -ForegroundColor White
+                    $curLineLength = 0
+                } else {
+                    Write-Host $newStatus -NoNewline -ForegroundColor White
+                }
+            
+                $status = $newStatus
+                $curLineLength += $newStatus.Length
+            }
+            if (( Get-VM -VMName $VMName).State -eq "Running") {
+                $timeOff = 0
+            } else {
+                $timeOff += $refreshRateSeconds
+                if ($timeOff -gt $timeout) {
                     Write-Host ""
-                    break
+                    $continue = Read-Host -Prompt "The VM has been powered off for more than $timeout seconds. Do you wish to exit the progress status?[Y/N]"
+                    if ($continue -ne "Y") {
+                        $timeoff = 0
+                    } else {
+                        Write-Host "Warning, user disabled status prompt, VM may still be in-use. Check before removing"
+                        Write-Host ""
+                        break
+                    }
                 }
             }
         }
@@ -249,11 +253,11 @@ Function Wait-VMStatus {
     until ($newStatus -eq $completeValue) 
     Write-Host ""
     if ($newStatus -eq $completeValue) {
-        Write-Host "Process Completed!"
-        Write-Host ""
+        Write-Output "Process Completed!"
+        Write-Output ""
     } else {
-        Write-Host "Some possible error encountered - check deployment before proceeding"
-        Write-Host ""
+        Write-Output "Some possible error encountered - check deployment before proceeding"
+        Write-Output ""
     }
 }
 
@@ -480,7 +484,7 @@ Function New-HyperVWindowsServer
         [Parameter(Mandatory=$true)][string]$windowsISOpath,
         [Parameter(Mandatory=$true)][string]$unattendTemplatePath,
         [string]$VMName = "Hyper-V Server 2012",
-        [string]$switch = "vSwitch",
+        [string]$VMSwitch = "vSwitch",
         [int]$numCores = 1,
         [long]$ramSize = 2GB,
         [array]$vhdPathArray = @('$path + "\hyper-v.vhd"'),
@@ -513,7 +517,8 @@ Function New-HyperVWindowsServer
         [switch]$InstallPBI,
         [string]$pbirsInstallDirectory,
         [string]$LogFilePBIRS,
-        [string]$pbirsProdKey
+        [string]$pbirsProdKey,
+        [switch]$dryRun
 
     )
 
@@ -526,7 +531,7 @@ Function New-HyperVWindowsServer
     # Define and set some baseline parameters
     $FirstLogonCommandOrder = 1
     $SpecialiseRunSyncCommandOrder = 1
-    $InitPartFormatDrives = 'Write-Host "Begining Initializing, partitioning and formatting system disks"'
+    $InitPartFormatDrives = 'Write-Output "Begining Initializing, partitioning and formatting system disks"'
 
 
     #Pad out arrays
@@ -544,36 +549,43 @@ Function New-HyperVWindowsServer
 # 
 # 
     
-    if ($confirmVMSettings) {
+    if ($confirmVMSettings -or $dryRun) {
         # VM Input Parameters:
-        Write-Host "VM Settings:"
-        Write-Host "------------"
-        Write-Host "VM Name: $VMName"
-        Write-Host "Cores: $numCores"
-        Write-Host "RAM: $ramSize"
-        Write-Host "Switch Name: $switch"
-        Write-Host ""
+        Write-Output "VM Settings:"
+        Write-Output "------------"
+        Write-Output "VM Name: $VMName"
+        Write-Output "Cores: $numCores"
+        Write-Output "RAM: $ramSize"
+        Write-Output "Switch Name: $VMSwitch"
+        Write-Output ""
 
-        Write-Host "Virtual Drive Creation Details:"
-        Write-Host "_______________________________"
+        Write-Output "Virtual Drive Creation Details:"
+        Write-Output "_______________________________"
         for ($i=0;$i -lt $numDrives; $i++) {
-            Write-Host ('vhd path: ' + $vhdPathArray[$i])
-            Write-Host ('Size: ' + $vhdSizeArray[$i])
-            Write-Host ('Block Size: ' + $vhdBlockSizeArray[$i])
-            Write-Host ('Sector Size: ' + $vhdSectorSizeArray[$i])
-            Write-Host ('Allocation Unit Size: ' + $vhdAllocationUnitSize[$i])
-            Write-Host ('Drive Letter: ' + $vhdDriveLetter[$i])
-            Write-Host ('Drive Label: ' + $vhdLabelArray[$i])
-            Write-Host '--------------------------------------------------'
-            Write-Host ''
+            Write-Output ('vhd path: ' + $vhdPathArray[$i])
+            Write-Output ('Size: ' + $vhdSizeArray[$i])
+            Write-Output ('Block Size: ' + $vhdBlockSizeArray[$i])
+            Write-Output ('Sector Size: ' + $vhdSectorSizeArray[$i])
+            Write-Output ('Allocation Unit Size: ' + $vhdAllocationUnitSize[$i])
+            Write-Output ('Drive Letter: ' + $vhdDriveLetter[$i])
+            Write-Output ('Drive Label: ' + $vhdLabelArray[$i])
+            Write-Output '--------------------------------------------------'
+            Write-Output ''
         }
         
-        $continue = Read-Host -Prompt "Do you wish to continue with the server deployment using these settings?[Y/N] "
-
-        if ($continue -eq "N") {
-            Write-Host "User aborted process - exiting"
-            Return
+        if ($confirmVMSettings) {
+            $continue = Read-Host -Prompt "Do you wish to continue with the server deployment using these settings?[Y/N] "
+            if ($continue -eq "N") {
+                Write-Output "User aborted process - exiting"
+                Return
+            }
         }
+
+        if ($dryRun) {
+            Write-Output "Dry run only - nothing started"
+            return
+        }
+
     }
 
 # 
@@ -604,10 +616,10 @@ Function New-HyperVWindowsServer
 # 
 
     # Check defined virtual switch exists. If not then create a Private Vitual Switch
-    if (!(Test-FAVMSwitchexistence -VMSwitchname $switch)) { New-VMSwitch -Name $switch -SwitchType Private -Notes "Internal to VMs only" }
+    if (!(Test-FAVMSwitchexistence -VMSwitchname $VMSwitch)) { New-VMSwitch -Name $VMSwitch -SwitchType Private -Notes "Internal to VMs only" }
 
     # Begin creating the VM and setting the relevant settings
-    New-VM -Name $VMName -SwitchName $switch -Generation $vmGen
+    New-VM -Name $VMName -SwitchName $VMSwitch -Generation $vmGen
     Set-VMProcessor -VMName $VMName -Count $numCores
     Set-VMMemory -VMName $VMName -StartupBytes $ramSize
 
@@ -780,7 +792,13 @@ Function New-HyperVWindowsServer
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Z:\temp\ConfigDrives.ps1' -Order $FirstLogonCommandOrder)
     $FirstLogonCommandOrder += 1
  
- 
+
+    #
+    
+    $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'PowerShell Set-NetFirewallRule -Name FPS-ICMP4-ERQ-In -Enabled True' -Order $FirstLogonCommandOrder)
+    $FirstLogonCommandOrder += 1 
+
+
  #
  
     $UnattendFirstLogonCmd += "`r`n" + (Set-AutoUnattendFirstLogonCmd -Command 'REG ADD "HKLM\SOFTWARE\MICROSOFT\Virtual Machine\Guest" /f /v OSInstallStatus /t REG_SZ /d Complete' -Order $FirstLogonCommandOrder)
@@ -924,30 +942,49 @@ Function New-HyperVWindowsServer
 
     if ($showProgress) {
     
-        Write-Host ""
-        Write-Host "Starting VM Deployment"
-        Write-Host ""
+        Write-Output ""
+        Write-Output "Starting VM Deployment"
+        Write-Output ""
         Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName -Command "Get-VMDvdDrive -VMName $VMName | Remove-VMDvdDrive" -runCmd -runCmdStatus "Specialize-Pass" }
 
-        Write-Host "Installing latest .Net Framework"
-        Write-Host ""
+        Write-Output "Installing latest .Net Framework"
+        Write-Output ""
         Measure-Command { Wait-VMStatus -statusName "DotNetInstallStatus" -completeValue "Complete" -VMName $VMName }
 
         if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($InstallPBI)) {
-            Write-Host ""
-            Write-Host "Starting Power BI Report Server Deployment"
-            Write-Host ""
+            Write-Output ""
+            Write-Output "Starting Power BI Report Server Deployment"
+            Write-Output ""
             Measure-Command { Wait-VMStatus -statusName "PBIRSInstallStatus" -completeValue "Complete" -VMName $VMName }
         }
 
         if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($SQLConfigTemplatePath -ne "")) {
-            Write-Host ""
-            Write-Host "Starting SQL Server Deployment"
-            Write-Host ""
+            Write-Output ""
+            Write-Output "Starting SQL Server Deployment"
+            Write-Output ""
             Measure-Command { Wait-VMStatus -statusName "SQLInstallStatus" -completeValue "Complete" -VMName $VMName }
         }
 
 
+    } else {
+
+        Write-Output "Starting VM Deployment"
+        Measure-Command { Wait-VMStatus -statusName "OSInstallStatus" -completeValue "Complete" -VMName $VMName -Command "Get-VMDvdDrive -VMName $VMName | Remove-VMDvdDrive" -runCmd -runCmdStatus "Specialize-Pass" -hideProgress }
+
+        Write-Output "Installing latest .Net Framework"
+        Measure-Command { Wait-VMStatus -statusName "DotNetInstallStatus" -completeValue "Complete" -VMName $VMName -hideProgress }
+
+        if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($InstallPBI)) {
+            Write-Output "Starting Power BI Report Server Deployment"
+            Measure-Command { Wait-VMStatus -statusName "PBIRSInstallStatus" -completeValue "Complete" -VMName $VMName -hideProgress }
+        }
+
+        if ((Test-FAVMExistence -VMName $VMName) -and ((Get-VM -Name $VMName).State -eq "Running") -and ($SQLConfigTemplatePath -ne "")) {
+            Write-Output "Starting SQL Server Deployment"
+            Measure-Command { Wait-VMStatus -statusName "SQLInstallStatus" -completeValue "Complete" -VMName $VMName -hideProgress }
+        }
+
+        
     }
 
 #
@@ -975,7 +1012,7 @@ Function New-HyperVWindowsServer
 #
 
     if ($killVM) {
-        Write-Host "When you press enter the Virtual Machine will be stopped and deleted"
+        Write-Output "When you press enter the Virtual Machine will be stopped and deleted"
         pause
         if (Test-FAVMExistence -VMName $VMName) {
             Stop-VM -Name $VMName -Force -TurnOff
