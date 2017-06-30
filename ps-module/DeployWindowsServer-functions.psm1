@@ -470,6 +470,62 @@ Function New-SQLServerConfigFile
 
     return $NewSQLConf
 }
+########## possibly create new ps1 script containing below as function and following function as the run script for ansible task
+Function Test-SMBShareName {
+<#
+    Test whether a SMBShare name is already in use.
+    Will append provided name with incremental number if name already in use
+#>
+
+    Param(
+        [Parameter(Mandatory=$True)][string]$Name
+    )
+    $i = 1
+    $TestName = $Name
+    While ( (Get-SmbShare | Where-Object {$_.Name -eq $TestName}).Path.Count -eq 1)
+    {
+        $TestName = $Name + '_' + $i
+        $i += 1
+    }
+    Return $TestName
+
+}
+
+
+Function Set-SMBSharePermissions {
+<#
+
+    This function will create a new folder share (if not already exists) and grant 'ReadAndExecute'
+    rights [default setting, can overwrite] to a specific user
+
+#>
+
+    Param(
+        [Parameter(Mandatory=$True)][string]$Path,
+        [Parameter(Mandatory=$True)][string]$Name,
+        [Parameter(Mandatory=$True)][string]$UserName,
+        [ValidateSet('ReadAndExecute','FullControl')][string]$FileSystemRights = 'ReadAndExecute',
+        [string]$Description
+    )
+
+    if ( (Get-SmbShare | Where-Object {$_.Path -eq $Path}).Path.Count -eq 0) {
+
+        $Name = Test-SMBShareName -Name $Name
+        New-SmbShare -Name $Name -Path $Path §
+                     -FullAccess 'BUILTIN\Administrators, Everyone' `
+                     -Description $Description
+    }
+
+    $acl = Get-Acl -Path $Path
+    $perm = $UserName, $FileSystemRights, 'ContainerInherit, ObjectInherit', 'None', 'Allow'
+    $rule = New-Object -TypeName System.Security.AccessControl.FileSystemAccessRule -ArgumentList $perm
+    $acl.SetAccessRule($rule)
+    $acl | Set-Acl -Path $Path
+
+    Write-Output "Shared '$Path' with the name '$Name' and added the following ACL permissions:" $rule
+
+}
+############### see comment above
 
 Function New-HyperVWindowsServer
 {
@@ -984,7 +1040,7 @@ Function New-HyperVWindowsServer
             Measure-Command { Wait-VMStatus -statusName "SQLInstallStatus" -completeValue "Complete" -VMName $VMName -hideProgress }
         }
 
-        
+
     }
 
 #
